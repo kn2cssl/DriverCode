@@ -11,9 +11,20 @@
 #define F_CPU 8000000UL
 #include <util/delay.h>
 #include "Initialize.h"
-
 #define _Freq (1.0/(2.0*3.14*2.0))
 char slave_address=0;
+char answer_permission;
+/////////////////////////
+int hall_flag=0,hall_dir=0,hall_mem=0;
+int counter=0;
+char data_test;
+void T_20ms(void);
+unsigned char USART_receive(void);
+void USART_send( unsigned char data);
+void USART_putstring(char* StringPtr);
+void send_reply(void);
+
+////////////////////////
 
 
 //#define TCNT1 (int)(TCNT1L|(TCNT1H<<8))
@@ -83,13 +94,13 @@ DDRD=0x5A;
 
 // Timer/Counter 0 initialization
 // Clock source: System Clock
-// Clock value: 8000.000 kHz
+// Clock value: 1000.000 kHz
 // Mode: Fast PWM top=0xFF
 // OC0A output: Disconnected
 // OC0B output: Disconnected
 TCCR0A=0x03;
-TCCR0B=0x01;
-TCNT0=0x00;
+TCCR0B=0x02;
+TCNT0=0x37;
 OCR0A=0x00;
 OCR0B=0x00;
 
@@ -130,19 +141,21 @@ OCR2A=0x00;
 OCR2B=0x00;
 
 // External Interrupt(s) initialization
-// INT0: Off
+// INT0: On
+// INT0 Mode: Rising Edge
 // INT1: Off
 // Interrupt on any change on pins PCINT0-7: Off
 // Interrupt on any change on pins PCINT8-14: Off
 // Interrupt on any change on pins PCINT16-23: On
-EICRA=0x00;
-EIMSK=0x00;
+EICRA=0x03;
+EIMSK=0x01;
+EIFR=0x01;
 PCICR=0x04;
-PCMSK2=0x04;
+PCMSK2=0xA4;
 PCIFR=0x04;
 
 // Timer/Counter 0 Interrupt(s) initialization
-TIMSK0=0x00;
+TIMSK0=0x01;
 
 // Timer/Counter 1 Interrupt(s) initialization
 TIMSK1=0x00;
@@ -153,11 +166,11 @@ TIMSK2=0x00;
 // USART initialization
 // Communication Parameters: 8 Data, 1 Stop, No Parity
 // USART Receiver: On
-// USART Transmitter: Off
+// USART Transmitter: On
 // USART0 Mode: Asynchronous
 // USART Baud Rate: 9600
 UCSR0A=0x00;
-UCSR0B=0x90;
+UCSR0B=0x98;
 UCSR0C=0x06;
 UBRR0H=0x00;
 UBRR0L=0x33;
@@ -197,27 +210,28 @@ asm("sei");
 DDRC|=(1<<PINC5);
     while(1)
     {
-        // Place your code here
+		
         if ( master_setpoint<0)
         {
 	        Motor_Direction=1;
 	        pwm = -master_setpoint*2;
-	        //LED_2(~READ_PIN(PORTB,4));
         }
+		
         else if (master_setpoint >=0)
         {
 	        pwm = master_setpoint*2;
 	        Motor_Direction= 0;
 	         
         }
-        //LED_3=~LED_3;
-        if(TCNT0>100){
-	        PORTC=PORTC&(~(1<<PINC5));
-        }
-        else
-        {
-	       PORTC=PORTC|(1<<PINC5);
-        }
+		
+        //if(TCNT0>100){
+	        //PORTC=PORTC&(~(1<<PINC5));
+        //}
+		
+        //else
+        //{
+	       //PORTC=PORTC|(1<<PINC5);
+        //}
 
         //pwm=255;
 		//Motor_Direction= 0;
@@ -228,7 +242,9 @@ DDRC|=(1<<PINC5);
         //M2_TCCR = (M2_TCCR & (~M2_TCCR_gm)) | (M2_TCCR_gm)|0x03;
         // M3_TCCR = (M3_TCCR & (~M3_TCCR_gm)) | (M3_TCCR_gm)|0x03;
 		//pwm = 80;
+		
         Motor_Update(pwm,Motor_Direction);
+		send_reply();
     }
 }
 
@@ -330,12 +346,14 @@ if ((status & (FRAMING_ERROR | PARITY_ERROR | DATA_OVERRUN))==0)
 		if(data == '*')
 		pck_num++;
 		break;
+		
 		case 1:
 		if(data == '~')
 		pck_num++;
 		else
 		pck_num=0;
 		break;
+		
 		case 2:
 		case 3:
 		case 4:
@@ -344,11 +362,12 @@ if ((status & (FRAMING_ERROR | PARITY_ERROR | DATA_OVERRUN))==0)
 		tmp_setpoint = data & 0x0ff;
 		pck_num++;
 		break;
+		
 		case 6:
-		if(data == '#')
+		if(data == '#' || data=='$')
 		{
-			//LED_1=~LED_1;
 			asm("wdr");
+			answer_permission=data;
 			master_setpoint = tmp_setpoint;
 		}
 		pck_num=0;
@@ -357,8 +376,105 @@ if ((status & (FRAMING_ERROR | PARITY_ERROR | DATA_OVERRUN))==0)
 }
 }
 
+ISR(INT0_vect)
+{
+	if (HALL1==1)
+	{
+		hall_dir=HALL2;
+	}
+}
+
 ISR(PCINT2_vect)
 {
-	         if(HALL1 == 1){
-	         WRITE_PORT(PORTD,1, HALL2);}
+	hall_flag++;
+	Motor_Update(pwm,Motor_Direction);
+
+}
+
+ISR(TIMER0_OVF_vect)
+{
+	// Reinitialize Timer 0 value
+	TCNT0=0x37;
+	
+	Motor_Update(pwm,Motor_Direction);
+	counter++;
+	
+	if (counter==100)
+	{
+		T_20ms();
+	}
+	
+}
+
+void T_20ms(void)
+{
+	//LED_1  (~READ_PIN(PORTB,0));
+	
+	RPM=(float)(hall_flag*62.50);	//62.50=60s/(20ms*48)	48 = 3(number of hall sensors) * 8(number of pair poles) * 2
+	RPM= (hall_dir)?-RPM:RPM;
+	counter=0;
+	hall_flag=0;
+}
+
+void send_reply(void)
+{   
+
+	if (answer_permission=='$' && slave_address%2==0)
+	{
+		UCSR0B=0x98;
+		PORTD=PORTD | 0x02 ;
+		
+		USART_send('*');
+		data_test=(((int)RPM) & 0x0ff);//HALL1;
+		USART_send(data_test);
+		data_test=((((int)RPM)&0x0ff00)>>8);//HALL2;
+		USART_send(data_test);
+		data_test=slave_address;//HALL3;
+		USART_send(data_test);
+		USART_send('#');
+	}
+	
+	if (answer_permission=='#' && slave_address%2==1)
+	{
+		UCSR0B=0x98;
+		PORTD=PORTD | 0x02 ;
+		
+		USART_send('*');
+		data_test=(((int)RPM) & 0x0ff);//HALL1;
+		USART_send(data_test);
+		data_test=((((int)RPM)&0x0ff00)>>8);//HALL2;
+		USART_send(data_test);
+		data_test=slave_address;//HALL3;
+		USART_send(data_test);
+		USART_send('#');
+	}	
+	
+	UCSR0B=0x90;
+	PORTD=PORTD & 0xFD ;
+
+}
+
+
+//	usart functions
+
+unsigned char USART_receive(void){
+	
+	while(!(UCSR0A & (1<<RXC0)));
+	return UDR0;
+	
+}
+
+void USART_send( unsigned char data){
+	
+	while(!(UCSR0A & (1<<UDRE0)));
+	UDR0 = data;
+	
+}
+
+void USART_putstring(char* StringPtr){
+	
+	while(*StringPtr != 0x00){
+		USART_send(*StringPtr);
+	StringPtr++;}
+	
 }
