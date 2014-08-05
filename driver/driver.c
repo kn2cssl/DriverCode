@@ -84,7 +84,7 @@ DDRB=0x3F;
 // Func6=In Func5=In Func4=In Func3=In Func2=In Func1=In Func0=In
 // State6=T State5=T State4=T State3=T State2=T State1=T State0=T
 PORTC=0x00;
-DDRC=0x01;
+DDRC=0x00;
 
 // Port D initialization
 // Func7=In Func6=Out Func5=In Func4=Out Func3=Out Func2=In Func1=Out Func0=In
@@ -94,13 +94,13 @@ DDRD=0x5A;
 
 // Timer/Counter 0 initialization
 // Clock source: System Clock
-// Clock value: 8000.000 kHz
+// Clock value: 1000.000 kHz
 // Mode: Fast PWM top=0xFF
 // OC0A output: Disconnected
 // OC0B output: Disconnected
 TCCR0A=0x03;
-TCCR0B=0x01;
-TCNT0=0x00;
+TCCR0B=0x02;
+TCNT0=0x37;
 OCR0A=0x00;
 OCR0B=0x00;
 
@@ -155,7 +155,7 @@ PCMSK2=0xA4;
 PCIFR=0x04;
 
 // Timer/Counter 0 Interrupt(s) initialization
-TIMSK0=0x00;
+TIMSK0=0x01;
 
 // Timer/Counter 1 Interrupt(s) initialization
 TIMSK1=0x00;
@@ -166,11 +166,11 @@ TIMSK2=0x00;
 // USART initialization
 // Communication Parameters: 8 Data, 1 Stop, No Parity
 // USART Receiver: On
-// USART Transmitter: Off
+// USART Transmitter: On
 // USART0 Mode: Asynchronous
 // USART Baud Rate: 9600
 UCSR0A=0x00;
-UCSR0B=0x90;
+UCSR0B=0x98;
 UCSR0C=0x06;
 UBRR0H=0x00;
 UBRR0L=0x33;
@@ -244,7 +244,7 @@ DDRC|=(1<<PINC5);
 		//pwm = 80;
 		
         Motor_Update(pwm,Motor_Direction);
-		//send_reply();
+		send_reply();
     }
 }
 
@@ -368,6 +368,7 @@ if ((status & (FRAMING_ERROR | PARITY_ERROR | DATA_OVERRUN))==0)
 		{
 			asm("wdr");
 			answer_permission=data;
+			master_setpoint = tmp_setpoint;
 		}
 		pck_num=0;
 		break;
@@ -379,103 +380,101 @@ ISR(INT0_vect)
 {
 	if (HALL1==1)
 	{
-		//hall_dir=HALL2;
-		WRITE_PORT(PORTD,1, HALL2);
+		hall_dir=HALL2;
 	}
 }
 
 ISR(PCINT2_vect)
 {
-	//hall_flag++; // used in usart mode
-	WRITE_PORT(PORTC,0,~READ_PIN(PINC,0));
+	hall_flag++;
 	Motor_Update(pwm,Motor_Direction);
 
 }
 
-//ISR(TIMER0_OVF_vect)
-//{
-	//// Reinitialize Timer 0 value
-	//TCNT0=0x37;
-	//
-	//Motor_Update(pwm,Motor_Direction);
-	//counter++;
-	//
-	//if (counter==100)
-	//{
-		//T_20ms();
-	//}
-	//
-//}
+ISR(TIMER0_OVF_vect)
+{
+	// Reinitialize Timer 0 value
+	TCNT0=0x37;
+	
+	Motor_Update(pwm,Motor_Direction);
+	counter++;
+	
+	if (counter==100)
+	{
+		T_20ms();
+	}
+	
+}
 
-//void T_20ms(void)
-//{
-	////LED_1  (~READ_PIN(PORTB,0));
-	//
-	//RPM=(float)(hall_flag*62.50);	//62.50=60s/(20ms*48)	48 = 3(number of hall sensors) * 8(number of pair poles) * 2
-	//RPM= (hall_dir)?-RPM:RPM;
-	//counter=0;
-	//hall_flag=0;
-//}
+void T_20ms(void)
+{
+	//LED_1  (~READ_PIN(PORTB,0));
+	
+	RPM=(float)(hall_flag*62.50);	//62.50=60s/(20ms*48)	48 = 3(number of hall sensors) * 8(number of pair poles) * 2
+	RPM= (hall_dir)?-RPM:RPM;
+	counter=0;
+	hall_flag=0;
+}
 
-//void send_reply(void)
-//{   
-//
-	//if (answer_permission=='$' && slave_address%2==0)
-	//{
-		//UCSR0B=0x98;
-		//PORTD=PORTD | 0x02 ;
-		//
-		//USART_send('*');
-		//data_test=(((int)RPM) & 0x0ff);//HALL1;
-		//USART_send(data_test);
-		//data_test=((((int)RPM)&0x0ff00)>>8);//HALL2;
-		//USART_send(data_test);
-		//data_test=slave_address;//HALL3;
-		//USART_send(data_test);
-		//USART_send('#');
-	//}
-	//
-	//if (answer_permission=='#' && slave_address%2==1)
-	//{
-		//UCSR0B=0x98;
-		//PORTD=PORTD | 0x02 ;
-		//
-		//USART_send('*');
-		//data_test=(((int)RPM) & 0x0ff);//HALL1;
-		//USART_send(data_test);
-		//data_test=((((int)RPM)&0x0ff00)>>8);//HALL2;
-		//USART_send(data_test);
-		//data_test=slave_address;//HALL3;
-		//USART_send(data_test);
-		//USART_send('#');
-	//}	
-	//
-	//UCSR0B=0x90;
-	//PORTD=PORTD & 0xFD ;
-//
-//}
+void send_reply(void)
+{   
+
+	if (answer_permission=='$' && slave_address%2==0)
+	{
+		UCSR0B=0x98;
+		PORTD=PORTD | 0x02 ;
+		
+		USART_send('*');
+		data_test=(((int)RPM) & 0x0ff);//HALL1;
+		USART_send(data_test);
+		data_test=((((int)RPM)&0x0ff00)>>8);//HALL2;
+		USART_send(data_test);
+		data_test=slave_address;//HALL3;
+		USART_send(data_test);
+		USART_send('#');
+	}
+	
+	if (answer_permission=='#' && slave_address%2==1)
+	{
+		UCSR0B=0x98;
+		PORTD=PORTD | 0x02 ;
+		
+		USART_send('*');
+		data_test=(((int)RPM) & 0x0ff);//HALL1;
+		USART_send(data_test);
+		data_test=((((int)RPM)&0x0ff00)>>8);//HALL2;
+		USART_send(data_test);
+		data_test=slave_address;//HALL3;
+		USART_send(data_test);
+		USART_send('#');
+	}	
+	
+	UCSR0B=0x90;
+	PORTD=PORTD & 0xFD ;
+
+}
 
 
 //	usart functions
 
-//unsigned char USART_receive(void){
-	//
-	//while(!(UCSR0A & (1<<RXC0)));
-	//return UDR0;
-	//
-//}
-//
-//void USART_send( unsigned char data){
-	//
-	//while(!(UCSR0A & (1<<UDRE0)));
-	//UDR0 = data;
-	//
-//}
-//
-//void USART_putstring(char* StringPtr){
-	//
-	//while(*StringPtr != 0x00){
-		//USART_send(*StringPtr);
-	//StringPtr++;}
-	//
-//}
+unsigned char USART_receive(void){
+	
+	while(!(UCSR0A & (1<<RXC0)));
+	return UDR0;
+	
+}
+
+void USART_send( unsigned char data){
+	
+	while(!(UCSR0A & (1<<UDRE0)));
+	UDR0 = data;
+	
+}
+
+void USART_putstring(char* StringPtr){
+	
+	while(*StringPtr != 0x00){
+		USART_send(*StringPtr);
+	StringPtr++;}
+	
+}
