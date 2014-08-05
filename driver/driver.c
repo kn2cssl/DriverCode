@@ -13,6 +13,7 @@
 #include "Initialize.h"
 #define _Freq (1.0/(2.0*3.14*2.0))
 char slave_address=0;
+char test_driver=0b11;
 char answer_permission;
 /////////////////////////
 int hall_flag=0,hall_dir=0,hall_mem=0;
@@ -72,7 +73,7 @@ signed long int motor_time,motor_time_tmp1,motor_time_tmp2,Motor_Speed,Motor_Spe
 char str[100];
 int main(void)
 {  
-
+slave_address=ADD0|(ADD1<<1);
 // Input/Output Ports initialization
 // Port B initialization
 // Func7=In Func6=In Func5=Out Func4=Out Func3=Out Func2=Out Func1=Out Func0=Out
@@ -94,15 +95,30 @@ DDRD=0x5A;
 
 // Timer/Counter 0 initialization
 // Clock source: System Clock
-// Clock value: 1000.000 kHz
+// Clock value: 8000.000 kHz
 // Mode: Fast PWM top=0xFF
 // OC0A output: Disconnected
 // OC0B output: Disconnected
 TCCR0A=0x03;
-TCCR0B=0x02;
-TCNT0=0x37;
+TCCR0B=0x01;
+TCNT0=0x00;
 OCR0A=0x00;
 OCR0B=0x00;
+if (slave_address==test_driver)
+{
+	// Timer/Counter 0 initialization
+	// Clock source: System Clock
+	// Clock value: 1000.000 kHz
+	// Mode: Fast PWM top=0xFF
+	// OC0A output: Disconnected
+	// OC0B output: Disconnected
+	TCCR0A=0x03;
+	TCCR0B=0x02;
+	TCNT0=0x37;
+	OCR0A=0x00;
+	OCR0B=0x00;
+}
+
 
 // Timer/Counter 1 initialization
 // Clock source: System Clock
@@ -141,21 +157,39 @@ OCR2A=0x00;
 OCR2B=0x00;
 
 // External Interrupt(s) initialization
-// INT0: On
-// INT0 Mode: Rising Edge
+// INT0: Off
 // INT1: Off
 // Interrupt on any change on pins PCINT0-7: Off
 // Interrupt on any change on pins PCINT8-14: Off
 // Interrupt on any change on pins PCINT16-23: On
-EICRA=0x03;
-EIMSK=0x01;
-EIFR=0x01;
+EICRA=0x00;
+EIMSK=0x00;
 PCICR=0x04;
-PCMSK2=0xA4;
+PCMSK2=0x04;
 PCIFR=0x04;
+if (slave_address==test_driver)
+{
+	// External Interrupt(s) initialization
+	// INT0: On
+	// INT0 Mode: Rising Edge
+	// INT1: Off
+	// Interrupt on any change on pins PCINT0-7: Off
+	// Interrupt on any change on pins PCINT8-14: Off
+	// Interrupt on any change on pins PCINT16-23: On
+	EICRA=0x03;
+	EIMSK=0x01;
+	EIFR=0x01;
+	PCICR=0x04;
+	PCMSK2=0xA4;
+	PCIFR=0x04;
+}
 
 // Timer/Counter 0 Interrupt(s) initialization
-TIMSK0=0x01;
+TIMSK0=0x00;
+if (slave_address==test_driver)
+{
+	TIMSK0=0x01;
+}
 
 // Timer/Counter 1 Interrupt(s) initialization
 TIMSK1=0x00;
@@ -166,14 +200,29 @@ TIMSK2=0x00;
 // USART initialization
 // Communication Parameters: 8 Data, 1 Stop, No Parity
 // USART Receiver: On
-// USART Transmitter: On
+// USART Transmitter: Off
 // USART0 Mode: Asynchronous
 // USART Baud Rate: 9600
 UCSR0A=0x00;
-UCSR0B=0x98;
+UCSR0B=0x90;
 UCSR0C=0x06;
 UBRR0H=0x00;
 UBRR0L=0x33;
+if (slave_address==test_driver)
+{
+	// USART initialization
+	// Communication Parameters: 8 Data, 1 Stop, No Parity
+	// USART Receiver: On
+	// USART Transmitter: On
+	// USART0 Mode: Asynchronous
+	// USART Baud Rate: 9600
+	UCSR0A=0x00;
+	UCSR0B=0x98;
+	UCSR0C=0x06;
+	UBRR0H=0x00;
+	UBRR0L=0x33;
+}
+
 
 // Analog Comparator initialization
 // Analog Comparator: Off
@@ -208,6 +257,7 @@ slave_address=ADD0|(ADD1<<1);
 // Global enable interrupts
 asm("sei");
 DDRC|=(1<<PINC5);
+
     while(1)
     {
 		
@@ -244,7 +294,11 @@ DDRC|=(1<<PINC5);
 		//pwm = 80;
 		
         Motor_Update(pwm,Motor_Direction);
-		send_reply();
+		if (slave_address==test_driver)
+		{
+			send_reply();
+		}
+		
     }
 }
 
@@ -330,8 +384,6 @@ void Motor_Update(uint8_t Speed, uint8_t Direction)
 	}
 }
 
-
-
 ISR(USART_RX_vect)
 {
 char status,data;
@@ -386,8 +438,17 @@ ISR(INT0_vect)
 
 ISR(PCINT2_vect)
 {
-	hall_flag++;
-	Motor_Update(pwm,Motor_Direction);
+	if (slave_address==test_driver)
+	{
+		hall_flag++;
+		Motor_Update(pwm,Motor_Direction);
+	}
+	else
+	{
+		if(HALL1 == 1){
+		WRITE_PORT(PORTD,1, HALL2);}
+	}
+	
 
 }
 
