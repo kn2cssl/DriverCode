@@ -12,6 +12,7 @@
 *.srec
 *.mk
 *.S
+*.atsuo
 Makefile
 TcfTransactionLog.csv
 
