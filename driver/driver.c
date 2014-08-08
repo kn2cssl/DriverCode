@@ -13,7 +13,7 @@
 #include "Initialize.h"
 #define _Freq (1.0/(2.0*3.14*2.0))
 char slave_address=0;
-char test_driver=0b11;
+char test_driver=0b11;//adres e driveri ke garare pid oon tanzim she
 char answer_permission;
 /////////////////////////
 int hall_flag=0,hall_dir=0,hall_mem=0;
@@ -26,10 +26,7 @@ void USART_putstring(char* StringPtr);
 void send_reply(void);
 
 ////////////////////////
-
-
 //#define TCNT1 (int)(TCNT1L|(TCNT1H<<8))
-
 
 signed long int master_setpoint=0x7fff;
 signed char tmp_setpoint;
@@ -41,7 +38,6 @@ float hall;
 float pwm;
 float PID_Err2,PID_Err1,PID_U2,PID_U1,RPM,RPM_1,p,p_new,i,d,d_1,kp,ki,kd;
 
-int enc;
 unsigned char adc;
 
 float adc_I,adc_I_1;
@@ -271,7 +267,6 @@ DDRC|=(1<<PINC5);
         {
 	        pwm = master_setpoint*2;
 	        Motor_Direction= 0;
-	         
         }
 		
         //if(TCNT0>100){
@@ -416,7 +411,7 @@ if ((status & (FRAMING_ERROR | PARITY_ERROR | DATA_OVERRUN))==0)
 		break;
 		
 		case 6:
-		if(data == '#' || data=='$')
+		if(data == '#')
 		{
 			asm("wdr");
 			answer_permission=data;
@@ -478,13 +473,7 @@ void T_20ms(void)
 }
 
 void send_reply(void)
-{   
-
-	if (answer_permission=='$' && slave_address%2==0)
-	{
-		UCSR0B=0x98;
-		PORTD=PORTD | 0x02 ;
-		
+{   		
 		USART_send('*');
 		data_test=(((int)RPM) & 0x0ff);//HALL1;
 		USART_send(data_test);
@@ -493,26 +482,6 @@ void send_reply(void)
 		data_test=slave_address;//HALL3;
 		USART_send(data_test);
 		USART_send('#');
-	}
-	
-	if (answer_permission=='#' && slave_address%2==1)
-	{
-		UCSR0B=0x98;
-		PORTD=PORTD | 0x02 ;
-		
-		USART_send('*');
-		data_test=(((int)RPM) & 0x0ff);//HALL1;
-		USART_send(data_test);
-		data_test=((((int)RPM)&0x0ff00)>>8);//HALL2;
-		USART_send(data_test);
-		data_test=slave_address;//HALL3;
-		USART_send(data_test);
-		USART_send('#');
-	}	
-	
-	UCSR0B=0x90;
-	PORTD=PORTD & 0xFD ;
-
 }
 
 
