@@ -14,7 +14,7 @@
 
 #define _Freq (1.0/(2.0*3.14*2.0))
 char slave_address=0;
-
+void send_reply(void);
 
 //#define TCNT1 (int)(TCNT1L|(TCNT1H<<8))
 
@@ -59,6 +59,23 @@ uint8_t a,Motor_Direction;
 
 signed long int motor_time,motor_time_tmp1,motor_time_tmp2,Motor_Speed,Motor_Speed_last;
 char str[100];
+
+#define ADC_VREF_TYPE 0x20
+
+// Read the 8 most significant bits
+// of the AD conversion result
+unsigned char read_adc(unsigned char adc_input)
+{
+	ADMUX=adc_input | (ADC_VREF_TYPE & 0xff);
+	// Delay needed for the stabilization of the ADC input voltage
+	_delay_us(10);
+	// Start the AD conversion
+	ADCSRA|=0x40;
+	// Wait for the AD conversion to complete
+	while ((ADCSRA & 0x10)==0);
+	ADCSRA|=0x10;
+	return ADCH;
+}
 int main(void)
 {  
 
@@ -170,8 +187,16 @@ ADCSRB=0x00;
 DIDR1=0x00;
 
 // ADC initialization
-// ADC disabled
-ADCSRA=0x00;
+// ADC Clock frequency: 156.250 kHz
+// ADC Voltage Reference: AREF pin
+// ADC Auto Trigger Source: ADC Stopped
+// Only the 8 most significant bits of
+// the AD conversion result are used
+// Digital input buffers on ADC0: On, ADC1: On, ADC2: On, ADC3: On
+// ADC4: On, ADC5: On
+DIDR0=0x00;
+ADMUX=ADC_VREF_TYPE & 0xff;
+ADCSRA=0x87;
 
 // SPI initialization
 // SPI disabled
@@ -197,7 +222,12 @@ asm("sei");
 DDRC|=(1<<PINC5);
     while(1)
     {
-        // Place your code here
+        adc_I_1=adc_I;
+        adc= (char)(read_adc(7)&0x00ff);
+        adc_I=adc*34.732;
+        adc_I = adc_I_1 + /*((0.01/(f+0.01))*/ (0.02*(float)(adc_I-adc_I_1));
+		
+		// Place your code here
         if ( master_setpoint<0)
         {
 	        Motor_Direction=1;
@@ -229,6 +259,15 @@ DDRC|=(1<<PINC5);
         // M3_TCCR = (M3_TCCR & (~M3_TCCR_gm)) | (M3_TCCR_gm)|0x03;
 		//pwm = 80;
         Motor_Update(pwm,Motor_Direction);
+		
+		if(flg_ask==1)
+		{
+			
+			send_reply();
+			
+			//UCSR0B=0x90;
+			// DDRD.1=0;
+		}
     }
 }
 
@@ -345,11 +384,21 @@ if ((status & (FRAMING_ERROR | PARITY_ERROR | DATA_OVERRUN))==0)
 		pck_num++;
 		break;
 		case 6:
+		ask_tmp=data;
+		pck_num++;
+		break;
+		
+		case 7:
 		if(data == '#')
 		{
-			//LED_1=~LED_1;
+			//LED_1  (~READ_PIN(PORTB,0));
 			asm("wdr");
 			master_setpoint = tmp_setpoint;
+			if (ask_tmp==slave_address)
+			{   //LED_1  (~READ_PIN(PORTB,0));
+				flg_ask=1;
+			}
+			
 		}
 		pck_num=0;
 		break;
@@ -361,4 +410,13 @@ ISR(PCINT2_vect)
 {
 	         if(HALL1 == 1){
 	         WRITE_PORT(PORTD,1, HALL2);}
+}
+void send_reply(void)
+{   
+	//LED_1  (~READ_PIN(PORTB,0));
+
+	
+	printf("*%c%c%c#",(((int)RPM) & 0x0ff),((((int)RPM)&0x0ff00)>>8),(int)adc_I);
+
+	flg_ask=0;
 }
