@@ -416,7 +416,7 @@ void send_reply(void)
 	//LED_1  (~READ_PIN(PORTB,0));
 
 	
-	printf("*%c%c%c#",(((int)RPM) & 0x0ff),((((int)RPM)&0x0ff00)>>8),(int)adc_I);
+	printf("*%c%c%c#",(((int)RPM) & 0x0ff),((((int)RPM)&0x0ff00)>>8),20);
 
 	flg_ask=0;
 }
