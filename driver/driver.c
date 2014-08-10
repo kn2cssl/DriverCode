@@ -15,6 +15,10 @@
 #define _Freq (1.0/(2.0*3.14*2.0))
 char slave_address=0;
 void send_reply(void);
+char data_test;
+void USART_putstring(char* StringPtr);
+void USART_send( unsigned char data);
+unsigned char USART_receive(void);
 
 //#define TCNT1 (int)(TCNT1L|(TCNT1H<<8))
 
@@ -275,9 +279,9 @@ void Motor_Update(uint8_t Speed, uint8_t Direction)
 {
 	 unsigned char Hall_State;
 	 Hall_State = (HALL3<<2)|(HALL2<<1)|(HALL1);
-	 LED_1  (HALL1);
-	 LED_2  (HALL2);
-	 LED_3  (HALL3);
+	 //LED_1  (HALL1);
+	 //LED_2  (HALL2);
+	 //LED_3  (HALL3);
 
 	switch(Hall_State | ((Direction<<3)&0x8))
 	{		
@@ -395,7 +399,7 @@ if ((status & (FRAMING_ERROR | PARITY_ERROR | DATA_OVERRUN))==0)
 			asm("wdr");
 			master_setpoint = tmp_setpoint;
 			if (ask_tmp==slave_address)
-			{   //LED_1  (~READ_PIN(PORTB,0));
+			{   LED_1  (~READ_PIN(PORTB,0));
 				flg_ask=1;
 			}
 			
@@ -415,8 +419,42 @@ void send_reply(void)
 {   
 	//LED_1  (~READ_PIN(PORTB,0));
 
+		USART_send('*');
+		data_test=(((int)RPM) & 0x0ff);//HALL1;
+		USART_send(data_test);
+		data_test=((((int)RPM)&0x0ff00)>>8);//HALL2;
+		USART_send(data_test);
+		data_test=25;//slave_address;//HALL3;
+		USART_send(data_test);
+		USART_send('#');
 	
-	printf("*%c%c%c#",(((int)RPM) & 0x0ff),((((int)RPM)&0x0ff00)>>8),20);
+	//printf("*%c%c%c#",(((int)RPM) & 0x0ff),((((int)RPM)&0x0ff00)>>8),20);
 
 	flg_ask=0;
+}
+
+
+
+//	usart functions
+
+unsigned char USART_receive(void){
+	
+	while(!(UCSR0A & (1<<RXC0)));
+	return UDR0;
+	
+}
+
+void USART_send( unsigned char data){
+	
+	while(!(UCSR0A & (1<<UDRE0)));
+	UDR0 = data;
+	
+}
+
+void USART_putstring(char* StringPtr){
+	
+	while(*StringPtr != 0x00){
+		USART_send(*StringPtr);
+	StringPtr++;}
+	
 }
