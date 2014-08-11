@@ -174,11 +174,11 @@ TIMSK2=0x00;
 // USART initialization
 // Communication Parameters: 8 Data, 1 Stop, No Parity
 // USART Receiver: On
-// USART Transmitter: Off
+// USART Transmitter: On
 // USART0 Mode: Asynchronous
 // USART Baud Rate: 9600
 UCSR0A=0x00;
-UCSR0B=0x90;
+UCSR0B=0x98;
 UCSR0C=0x06;
 UBRR0H=0x00;
 UBRR0L=0x33;
@@ -417,12 +417,12 @@ ISR(PCINT2_vect)
 }
 void send_reply(void)
 {   
-	//LED_1  (~READ_PIN(PORTB,0));
+	
 
 		USART_send('*');
-		data_test=(((int)RPM) & 0x0ff);//HALL1;
+		data_test=(((int)adc_I) & 0x0ff);//HALL1;
 		USART_send(data_test);
-		data_test=((((int)RPM)&0x0ff00)>>8);//HALL2;
+		data_test=((((int)adc_I)&0x0ff00)>>8);//HALL2;
 		USART_send(data_test);
 		data_test=25;//slave_address;//HALL3;
 		USART_send(data_test);
