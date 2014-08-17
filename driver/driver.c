@@ -253,7 +253,7 @@ DDRC|=(1<<PINC5);
 	       PORTC=PORTC|(1<<PINC5);
         }
 
-        //pwm=255;
+        //pwm=80;
 		//Motor_Direction= 0;
         //        M1p=0;
         //        M2p=0;
@@ -261,7 +261,7 @@ DDRC|=(1<<PINC5);
         //M1_TCCR = (M1_TCCR & (~M1_TCCR_gm)) | (M1_TCCR_gm)|0x03;
         //M2_TCCR = (M2_TCCR & (~M2_TCCR_gm)) | (M2_TCCR_gm)|0x03;
         // M3_TCCR = (M3_TCCR & (~M3_TCCR_gm)) | (M3_TCCR_gm)|0x03;
-		//pwm = 80;
+		
         Motor_Update(pwm,Motor_Direction);
 		
 		if(flg_ask==1)
@@ -279,9 +279,9 @@ void Motor_Update(uint8_t Speed, uint8_t Direction)
 {
 	 unsigned char Hall_State;
 	 Hall_State = (HALL3<<2)|(HALL2<<1)|(HALL1);
-	 //LED_1  (HALL1);
-	 //LED_2  (HALL2);
-	 //LED_3  (HALL3);
+	 LED_1  (HALL1);
+	 LED_2  (HALL2);
+	 LED_3  (HALL3);
 
 	switch(Hall_State | ((Direction<<3)&0x8))
 	{		
@@ -395,11 +395,11 @@ if ((status & (FRAMING_ERROR | PARITY_ERROR | DATA_OVERRUN))==0)
 		case 7:
 		if(data == '#')
 		{
-			//LED_1  (~READ_PIN(PORTB,0));
+			//LED_2  (~READ_PIN(PORTB,4));
 			asm("wdr");
 			master_setpoint = tmp_setpoint;
 			if (ask_tmp==slave_address)
-			{   LED_1  (~READ_PIN(PORTB,0));
+			{   //LED_1  (~READ_PIN(PORTB,0));
 				flg_ask=1;
 			}
 			
@@ -412,25 +412,32 @@ if ((status & (FRAMING_ERROR | PARITY_ERROR | DATA_OVERRUN))==0)
 
 ISR(PCINT2_vect)
 {
-	         if(HALL1 == 1){
-	         WRITE_PORT(PORTD,1, HALL2);}
+	         Motor_Update(pwm,Motor_Direction);
+			 //if(HALL1 == 1)
+			 //{
+	         //WRITE_PORT(PORTD,1, HALL2);}
 }
 void send_reply(void)
 {   
 	
-
+		Motor_Update(pwm,Motor_Direction);
 		USART_send('*');
 		data_test=(((int)adc_I) & 0x0ff);//HALL1;
+		Motor_Update(pwm,Motor_Direction);
 		USART_send(data_test);
 		data_test=((((int)adc_I)&0x0ff00)>>8);//HALL2;
+		Motor_Update(pwm,Motor_Direction);
 		USART_send(data_test);
 		data_test=25;//slave_address;//HALL3;
+		Motor_Update(pwm,Motor_Direction);
 		USART_send(data_test);
 		USART_send('#');
-	
+	     flg_ask=0;
+		Motor_Update(pwm,Motor_Direction);
 	//printf("*%c%c%c#",(((int)RPM) & 0x0ff),((((int)RPM)&0x0ff00)>>8),20);
+	
 
-	flg_ask=0;
+	
 }
 
 
