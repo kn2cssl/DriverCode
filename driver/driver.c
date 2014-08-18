@@ -90,11 +90,12 @@ int main(void)
 PORTB=0x00;
 DDRB=0x3F;
 
+
 // Port C initialization
-// Func6=In Func5=In Func4=In Func3=In Func2=In Func1=In Func0=In
-// State6=T State5=T State4=T State3=T State2=T State1=T State0=T
+// Func6=In Func5=Out Func4=Out Func3=In Func2=In Func1=In Func0=In
+// State6=T State5=0 State4=0 State3=T State2=T State1=T State0=T
 PORTC=0x00;
-DDRC=0x00;
+DDRC=0x30;
 
 // Port D initialization
 // Func7=In Func6=Out Func5=In Func4=Out Func3=Out Func2=In Func1=Out Func0=In
@@ -413,9 +414,13 @@ if ((status & (FRAMING_ERROR | PARITY_ERROR | DATA_OVERRUN))==0)
 ISR(PCINT2_vect)
 {
 	         Motor_Update(pwm,Motor_Direction);
+			 if(HALL1 == 1)
+			 {
+	         WRITE_PORT(PORTD,1, HALL2);}
+			 ////////////////////////////////////for current sensing driver that sends direction on pin c.5
 			 //if(HALL1 == 1)
 			 //{
-	         //WRITE_PORT(PORTD,1, HALL2);}
+			 //WRITE_PORT(PORTC,5, HALL2);}
 }
 void send_reply(void)
 {   
