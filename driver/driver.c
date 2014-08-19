@@ -172,17 +172,37 @@ TIMSK1=0x00;
 // Timer/Counter 2 Interrupt(s) initialization
 TIMSK2=0x00;
 
-// USART initialization
-// Communication Parameters: 8 Data, 1 Stop, No Parity
-// USART Receiver: On
-// USART Transmitter: On
-// USART0 Mode: Asynchronous
-// USART Baud Rate: 9600
-UCSR0A=0x00;
-UCSR0B=0x98;
-UCSR0C=0x06;
-UBRR0H=0x00;
-UBRR0L=0x33;
+if (slave_address==0)
+{
+	// USART initialization
+	// Communication Parameters: 8 Data, 1 Stop, No Parity
+	// USART Receiver: On
+	// USART Transmitter: On
+	// USART0 Mode: Asynchronous
+	// USART Baud Rate: 9600
+	UCSR0A=0x00;
+	UCSR0B=0x98;
+	UCSR0C=0x06;
+	UBRR0H=0x00;
+	UBRR0L=0x33;
+}
+else
+{
+	// USART initialization
+	// Communication Parameters: 8 Data, 1 Stop, No Parity
+	// USART Receiver: On
+	// USART Transmitter: Off
+	// USART0 Mode: Asynchronous
+	// USART Baud Rate: 9600
+	UCSR0A=0x00;
+	UCSR0B=0x90;
+	UCSR0C=0x06;
+	UBRR0H=0x00;
+	UBRR0L=0x33;
+}
+
+
+
 
 // Analog Comparator initialization
 // Analog Comparator: Off
@@ -414,13 +434,15 @@ if ((status & (FRAMING_ERROR | PARITY_ERROR | DATA_OVERRUN))==0)
 ISR(PCINT2_vect)
 {
 	         Motor_Update(pwm,Motor_Direction);
-			 if(HALL1 == 1)
-			 {
+	         if(HALL1 == 1)
+	         {
 	         WRITE_PORT(PORTD,1, HALL2);}
 			 ////////////////////////////////////for current sensing driver that sends direction on pin c.5
-			 //if(HALL1 == 1)
-			 //{
-			 //WRITE_PORT(PORTC,5, HALL2);}
+			 if(slave_address==0 | slave_address==1)
+			 {
+			 if(HALL1 == 1)
+			 {
+			 WRITE_PORT(PORTC,5, HALL2);}}
 }
 void send_reply(void)
 {   
