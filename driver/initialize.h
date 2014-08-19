@@ -75,8 +75,16 @@
 #define PARITY_ERROR (1<<UPE)
 #define DATA_OVERRUN (1<<DOR)
 
+#define _FILTER_FREQ 1.0
+#define _FILTER_CONST 0.11 //(0.02/((1.0/(2.0*3.14*_FILTER_FREQ))+0.02))
+
 
 void Motor_Update(unsigned char Speed, unsigned char Direction);
-void PD_CTRL(void);
+inline int PD_CTRL (int Setpoint,int Feed_Back,int *PID_Err_past,int *d_past,float *i);
+void T_20ms(void);
+unsigned char USART_receive(void);
+void USART_send( unsigned char data);
+void USART_putstring(char* StringPtr);
+void send_reply(void);
 
 #endif /* INITIALIZE_H_ */
