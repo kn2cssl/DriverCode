@@ -19,9 +19,10 @@ char answer_permission;
 char send_buff;
 char str[100];
 int hall_flag=0,hall_dir=0;
-int counter=0;
+uint16_t counter=0;
 int ctrl=0;
 int PWM;
+float ctrl_time=0.001;//0.020;
 signed long int RPM_setpoint=900;
 int tmp_setpoint,tmp_rpmA,tmp_rpmB;
 unsigned char pck_num = 0;
@@ -80,7 +81,7 @@ OCR0B=0x00;
 
 // Timer/Counter 1 initialization
 // Clock source: System Clock
-// Clock value: 1000.000 kHz
+// Clock value: 2000.000 kHz
 // Mode: Normal top=0xFFFF
 // OC1A output: Discon.
 // OC1B output: Discon.
@@ -92,8 +93,8 @@ OCR0B=0x00;
 // Compare B Match Interrupt: Off
 TCCR1A=0x00;
 TCCR1B=0x02;
-TCNT1H=0xB1;
-TCNT1L=0xE0;
+TCNT1H=0xF8;
+TCNT1L=0x2F;
 ICR1H=0x00;
 ICR1L=0x00;
 OCR1AH=0x00;
@@ -205,7 +206,7 @@ DDRC|=(1<<PINC5);
 		{
 			M.RPM_last = M.RPM ; M.RPM=M.HSpeed;
 			M.RPM = M.RPM_last + _FILTER_CONST *( M.RPM - M.RPM_last ) ;
-			M.PWM = PD_CTRL ( (M.RPM_setpointB & 0x0ff)|((M.RPM_setpointA<<8) & 0xff00) , M.RPM , &M.Err , &M.d , &M.i ) ;
+			M.PWM = PD_CTRL ( 1000 , M.RPM , &M.Err , &M.d , &M.i ) ;//(M.RPM_setpointB & 0x0ff)|((M.RPM_setpointA<<8) & 0xff00)
 			
 			if ( M.PWM<0)
 			{
@@ -217,7 +218,6 @@ DDRC|=(1<<PINC5);
 			{
 				PWM = M.PWM * 2 ;
 				Motor_Direction = 0 ;
-		        
 			}
 			ctrl=0;
 		}
@@ -233,6 +233,7 @@ DDRC|=(1<<PINC5);
 void Motor_Update(uint8_t Speed, uint8_t Direction)
 {
 	 unsigned char Hall_State;
+	 asm("wdr");
 	 Hall_State = (HALL3<<2)|(HALL2<<1)|(HALL1);
 	 LED_1  (HALL1);
 	 LED_2  (HALL2);
@@ -319,7 +320,7 @@ inline int PD_CTRL (int Setpoint,int Feed_Back,int *PID_Err_past,int *d_past,flo
 	int PID_Err=Setpoint-Feed_Back;
 
 	
-	int d=(PID_Err-(*PID_Err_past))*10 ;
+	int d=(PID_Err-(*PID_Err_past))/2;//*10 ;
 	// d= (*d_past) +0.05*(d-(*d_past));
 
 	d=(abs(d)<50)?0:d;
@@ -330,7 +331,7 @@ inline int PD_CTRL (int Setpoint,int Feed_Back,int *PID_Err_past,int *d_past,flo
 	int p=PID_Err*kp;
 
 
-	(*i)=(*i)+(ki*PID_Err)*.020;
+	(*i)=(*i)+(ki*PID_Err)*.001;
 
 
 	if ((*i)>80)
@@ -405,7 +406,7 @@ if ((status & (FRAMING_ERROR | PARITY_ERROR | DATA_OVERRUN))==0)
 		break;
 		
 		case 11:
-		ki = (float)data/100.0; //Robot_D[RobotID].I
+		ki = .05;(float)data/100.0; //Robot_D[RobotID].I
 		pck_num++;
 		break;
 		
@@ -452,14 +453,21 @@ ISR(TIMER1_OVF_vect)
 	//Motor_Update ( M.PWM , Motor_Direction ) ;
 	TCNT1H=0xB1;
 	TCNT1L=0xE0;
-
-		T_20ms() ;
-		ctrl=1;
+	
+	counter++;
+	if (counter==20)
+	{
+		Time++;
+		counter=0;
+	}
+	
+	T_20ms() ;
+	ctrl=1;
 		
-				if(slave_address==0b11)
-				{
-					send_reply () ;
-				}
+	if(slave_address==0b11)
+	{
+		send_reply () ;
+	}
 
 	
 }
@@ -469,9 +477,8 @@ void T_20ms(void)
 {
 	//LED_1  (~READ_PIN(PORTB,0));
 	
-	M.HSpeed = (float) ( hall_flag * 62.50 ) ;	//62.50=60s/(20ms*48)	48 = 3(number of hall sensors) * 8(number of pair poles) * 2
+	M.HSpeed = (float) ( hall_flag * 125 ) ;	//62.50=60s/(20ms*48)	48 = 3(number of hall sensors) * 8(number of pair poles) * 2
 	M.HSpeed = ( hall_dir ) ? - M.HSpeed : M.HSpeed ;
-	counter = 0 ;
 	hall_flag = 0 ;
 
 }
