@@ -274,7 +274,7 @@ DDRC|=(1<<PINC5);
 	       PORTC=PORTC|(1<<PINC5);
         }
 
-        //pwm=80;
+        pwm=80;
 		//Motor_Direction= 0;
         //        M1p=0;
         //        M2p=0;
@@ -418,7 +418,7 @@ if ((status & (FRAMING_ERROR | PARITY_ERROR | DATA_OVERRUN))==0)
 		{
 			//LED_2  (~READ_PIN(PORTB,4));
 			asm("wdr");
-			master_setpoint = tmp_setpoint;
+			//master_setpoint = tmp_setpoint;
 			if (ask_tmp==slave_address)
 			{   //LED_1  (~READ_PIN(PORTB,0));
 				flg_ask=1;
@@ -434,15 +434,15 @@ if ((status & (FRAMING_ERROR | PARITY_ERROR | DATA_OVERRUN))==0)
 ISR(PCINT2_vect)
 {
 	         Motor_Update(pwm,Motor_Direction);
-	         if(HALL1 == 1)
-	         {
-	         WRITE_PORT(PORTD,1, HALL2);}
-			 ////////////////////////////////////for current sensing driver that sends direction on pin c.5
-			 if(slave_address==0 | slave_address==1)
-			 {
+	         //if(HALL1 == 1)
+	         //{
+	         //WRITE_PORT(PORTD,1, HALL2);}
+			 //////////////////////////////////////for current sensing driver that sends direction on pin c.5
+			 //if(slave_address==0 || slave_address==1)
+			 //{
 			 if(HALL1 == 1)
 			 {
-			 WRITE_PORT(PORTC,5, HALL2);}}
+			 WRITE_PORT(PORTC,5, HALL2);}//}
 }
 void send_reply(void)
 {   
