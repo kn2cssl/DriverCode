@@ -18,7 +18,7 @@ char send_buff;
 char str[100];
 int hall_flag=0,hall_dir=0;
 uint16_t counter=0;
-int PWM;
+char PWM;
 float ctrl_time=0.001;//0.020;
 signed long int RPM_setpoint=900;
 int tmp_setpoint,tmp_rpmA,tmp_rpmB;
@@ -34,7 +34,7 @@ struct Motor_Param
 	int Direction;
 	int RPM;
 	int RPM_last;
-	int PWM;
+	signed long int PWM=0x7fff;
 	int HSpeed;
 	int PWM1;
 	signed int RPM_setpointB;
