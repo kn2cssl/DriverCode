@@ -12,15 +12,12 @@
 #include <util/delay.h>
 #include "Initialize.h"
 #define _Freq (1.0/(2.0*3.14*2.0))
-//#define TCNT1 (int)(TCNT1L|(TCNT1H<<8))
 
 char slave_address=0;
-char answer_permission;
 char send_buff;
 char str[100];
 int hall_flag=0,hall_dir=0;
 uint16_t counter=0;
-int ctrl=0;
 int PWM;
 float ctrl_time=0.001;//0.020;
 signed long int RPM_setpoint=900;
@@ -81,7 +78,7 @@ OCR0B=0x00;
 
 // Timer/Counter 1 initialization
 // Clock source: System Clock
-// Clock value: 2000.000 kHz
+// Clock value: 1000.000 kHz
 // Mode: Normal top=0xFFFF
 // OC1A output: Discon.
 // OC1B output: Discon.
@@ -93,8 +90,8 @@ OCR0B=0x00;
 // Compare B Match Interrupt: Off
 TCCR1A=0x00;
 TCCR1B=0x02;
-TCNT1H=0xF8;
-TCNT1L=0x2F;
+TCNT1H=0x00;
+TCNT1L=0x00;
 ICR1H=0x00;
 ICR1L=0x00;
 OCR1AH=0x00;
@@ -202,30 +199,11 @@ DDRC|=(1<<PINC5);
 
     while(1)
     {
-		while(ctrl)
-		{
-			M.RPM_last = M.RPM ; M.RPM=M.HSpeed;
-			M.RPM = M.RPM_last + _FILTER_CONST *( M.RPM - M.RPM_last ) ;
-			M.PWM = PD_CTRL ( 1000 , M.RPM , &M.Err , &M.d , &M.i ) ;//(M.RPM_setpointB & 0x0ff)|((M.RPM_setpointA<<8) & 0xff00)
-			
-			if ( M.PWM<0)
-			{
-				Motor_Direction = 1 ;
-				PWM = -M.PWM*2;
-			}
-							        
-			else if (M.PWM >=0)
-			{
-				PWM = M.PWM * 2 ;
-				Motor_Direction = 0 ;
-			}
-			ctrl=0;
-		}
 
-		
-		
-		Motor_Update ( PWM , Motor_Direction ) ;
-		
+					if(slave_address==0b11)
+					{
+						send_reply () ;
+					}
 		
     }
 }
@@ -419,7 +397,6 @@ if ((status & (FRAMING_ERROR | PARITY_ERROR | DATA_OVERRUN))==0)
 		if(data == '#' || data=='$')
 		{
 			asm("wdr");
-			answer_permission=data;
 			M.RPM_setpointB=tmp_rpmB;
 			M.RPM_setpointA=tmp_rpmA;
 			//RPM_setpoint = tmp_setpoint;
@@ -449,27 +426,37 @@ ISR(PCINT2_vect)
 
 ISR(TIMER1_OVF_vect)
 {
-	
 	//Motor_Update ( M.PWM , Motor_Direction ) ;
-	TCNT1H=0xB1;
-	TCNT1L=0xE0;
+	TCNT1H=0xfc;
+	TCNT1L=0x17;
 	
 	counter++;
-	if (counter==20)
+	if (counter==1)
 	{
 		Time++;
 		counter=0;
+
 	}
 	
 	T_20ms() ;
-	ctrl=1;
-		
-	if(slave_address==0b11)
-	{
-		send_reply () ;
-	}
-
 	
+	M.RPM_last = M.RPM ; M.RPM=M.HSpeed;
+	M.RPM = M.RPM_last + _FILTER_CONST *( M.RPM - M.RPM_last ) ;
+	M.PWM = PD_CTRL ( (M.RPM_setpointB & 0x0ff)|((M.RPM_setpointA<<8) & 0xff00) , M.RPM , &M.Err , &M.d , &M.i ) ;//
+				
+	if ( M.PWM<0)
+	{
+		Motor_Direction = 1 ;
+		PWM = -M.PWM*2;
+	}
+				
+	else if (M.PWM >=0)
+	{
+		PWM = M.PWM * 2 ;
+		Motor_Direction = 0 ;
+	}
+		
+	Motor_Update ( M.PWM , Motor_Direction ) ;
 }
 
 
@@ -477,7 +464,7 @@ void T_20ms(void)
 {
 	//LED_1  (~READ_PIN(PORTB,0));
 	
-	M.HSpeed = (float) ( hall_flag * 125 ) ;	//62.50=60s/(20ms*48)	48 = 3(number of hall sensors) * 8(number of pair poles) * 2
+	M.HSpeed = (float) ( hall_flag * 1250 ) ;	//62.50=60s/(20ms*48)	48 = 3(number of hall sensors) * 8(number of pair poles) * 2
 	M.HSpeed = ( hall_dir ) ? - M.HSpeed : M.HSpeed ;
 	hall_flag = 0 ;
 

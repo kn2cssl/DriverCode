@@ -76,7 +76,7 @@
 #define DATA_OVERRUN (1<<DOR)
 
 #define _FILTER_FREQ 1.0//
-#define _FILTER_CONST 0.16 //(0.02/((1.0/(2.0*3.14*_FILTER_FREQ))+0.02))
+#define _FILTER_CONST 0.006//(0.02/((1.0/(2.0*3.14*_FILTER_FREQ))+0.02))
 
 
 void Motor_Update(unsigned char Speed, unsigned char Direction);
