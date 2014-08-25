@@ -18,7 +18,7 @@ char send_buff;
 char str[100];
 int hall_flag=0,hall_dir=0;
 uint16_t counter=0;
-char PWM;
+int PWM;
 float ctrl_time=0.001;//0.020;
 signed long int RPM_setpoint=900;
 int tmp_setpoint,tmp_rpmA,tmp_rpmB;
@@ -34,7 +34,7 @@ struct Motor_Param
 	int Direction;
 	int RPM;
 	int RPM_last;
-	signed long int PWM=0x7fff;
+	int PWM;
 	int HSpeed;
 	int PWM1;
 	signed int RPM_setpointB;
@@ -334,7 +334,6 @@ inline int PD_CTRL (int Setpoint,int Feed_Back,int *PID_Err_past,int *d_past,flo
 	return 0;
 	
 	return PID_U;
-	// direction =1;
 
 }
 
@@ -346,7 +345,7 @@ data=UDR0;
 
 if ((status & (FRAMING_ERROR | PARITY_ERROR | DATA_OVERRUN))==0)
 {
-		Motor_Update ( M.PWM , Motor_Direction ) ;
+		Motor_Update ( PWM , Motor_Direction ) ;
 	switch (pck_num)
 	{
 		case 0:
@@ -419,14 +418,14 @@ ISR(INT0_vect)
 ISR(PCINT2_vect)
 {
 	hall_flag ++ ;
-	Motor_Update ( M.PWM , Motor_Direction ) ;
+	Motor_Update ( PWM , Motor_Direction ) ;
 
 }
 
 
 ISR(TIMER1_OVF_vect)
 {
-	//Motor_Update ( M.PWM , Motor_Direction ) ;
+	//Motor_Update ( PWM , Motor_Direction ) ;
 	TCNT1H=0xfc;
 	TCNT1L=0x17;
 	
@@ -442,7 +441,7 @@ ISR(TIMER1_OVF_vect)
 	
 	M.RPM_last = M.RPM ; M.RPM=M.HSpeed;
 	M.RPM = M.RPM_last + _FILTER_CONST *( M.RPM - M.RPM_last ) ;
-	M.PWM = PD_CTRL ( (M.RPM_setpointB & 0x0ff)|((M.RPM_setpointA<<8) & 0xff00) , M.RPM , &M.Err , &M.d , &M.i ) ;//
+	M.PWM = PD_CTRL ( (M.RPM_setpointB & 0x0ff)|((M.RPM_setpointA<<8) & 0xff00), M.RPM , &M.Err , &M.d , &M.i ) ;//
 				
 	if ( M.PWM<0)
 	{
@@ -456,7 +455,7 @@ ISR(TIMER1_OVF_vect)
 		Motor_Direction = 0 ;
 	}
 		
-	Motor_Update ( M.PWM , Motor_Direction ) ;
+	Motor_Update ( PWM , Motor_Direction ) ;
 }
 
 
