@@ -64,11 +64,10 @@ uint8_t a,Motor_Direction;
 signed long int motor_time,motor_time_tmp1,motor_time_tmp2,Motor_Speed,Motor_Speed_last;
 char str[100];
 
-#define ADC_VREF_TYPE 0x20
+#define ADC_VREF_TYPE 0x00
 
-// Read the 8 most significant bits
-// of the AD conversion result
-unsigned char read_adc(unsigned char adc_input)
+// Read the AD conversion result
+unsigned int read_adc(unsigned char adc_input)
 {
 	ADMUX=adc_input | (ADC_VREF_TYPE & 0xff);
 	// Delay needed for the stabilization of the ADC input voltage
@@ -78,7 +77,7 @@ unsigned char read_adc(unsigned char adc_input)
 	// Wait for the AD conversion to complete
 	while ((ADCSRA & 0x10)==0);
 	ADCSRA|=0x10;
-	return ADCH;
+	return ADCW;
 }
 int main(void)
 {  
@@ -181,7 +180,7 @@ ADCSRB=0x00;
 DIDR1=0x00;
 
 // ADC initialization
-// ADC Clock frequency: 156.250 kHz
+// ADC Clock frequency: 62.500 kHz
 // ADC Voltage Reference: AREF pin
 // ADC Auto Trigger Source: ADC Stopped
 // Only the 8 most significant bits of
@@ -247,8 +246,8 @@ DDRC|=(1<<PINC5);
     {
         adc_I_1=adc_I;
         adc= (char)(read_adc(7)&0x00ff);
-        adc_I=adc*34.732;
-        adc_I = adc_I_1 + /*((0.01/(f+0.01))*/ (0.02*(float)(adc_I-adc_I_1));
+        adc_I=adc;//*34.732;
+        //adc_I = adc_I_1 + /*((0.01/(f+0.01))*/ (0.02*(float)(adc_I-adc_I_1));
 		
 		// Place your code here
         if ( master_setpoint<0)
