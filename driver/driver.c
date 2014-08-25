@@ -183,8 +183,6 @@ DIDR1=0x00;
 // ADC Clock frequency: 62.500 kHz
 // ADC Voltage Reference: AREF pin
 // ADC Auto Trigger Source: ADC Stopped
-// Only the 8 most significant bits of
-// the AD conversion result are used
 // Digital input buffers on ADC0: On, ADC1: On, ADC2: On, ADC3: On
 // ADC4: On, ADC5: On
 DIDR0=0x00;
@@ -246,8 +244,8 @@ DDRC|=(1<<PINC5);
     {
         adc_I_1=adc_I;
         adc= (char)(read_adc(7)&0x00ff);
-        adc_I=adc;//*34.732;
-        //adc_I = adc_I_1 + /*((0.01/(f+0.01))*/ (0.02*(float)(adc_I-adc_I_1));
+        adc_I=adc*8.65;//*34.732;
+        adc_I = adc_I_1 + /*((0.01/(f+0.01))*/ (0.02*(float)(adc_I-adc_I_1));
 		
 		// Place your code here
         if ( master_setpoint<0)
