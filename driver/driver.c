@@ -42,8 +42,11 @@ struct Motor_Param
 	
 }M;
 
+
+
 int main(void)
 {  
+	M.PWM=0x7fff;
 	slave_address=ADD0|(ADD1<<1);
 // Input/Output Ports initialization
 // Port B initialization
@@ -66,7 +69,7 @@ DDRD=0x5A;
 
 // Timer/Counter 0 initialization
 // Clock source: System Clock
-// Clock value: 1000.000 kHz
+// Clock value: 8000.000 kHz
 // Mode: Fast PWM top=0xFF
 // OC0A output: Disconnected
 // OC0B output: Disconnected
@@ -291,20 +294,16 @@ void Motor_Update(uint8_t Speed, uint8_t Direction)
 	}
 }
 
-inline int PD_CTRL (int Setpoint,int Feed_Back,int *PID_Err_past,int *d_past,float *i)
+inline int PD_CTRL (int Setpoint,int Feed_Back,int *Feed_Back_past,int *d_past,float *i)
 {
-	
-
 	int PID_Err=Setpoint-Feed_Back;
-
-	
-	int d=(PID_Err-(*PID_Err_past))/2;//*10 ;
+	int d=(*Feed_Back_past-(Feed_Back))*10 ;
 	// d= (*d_past) +0.05*(d-(*d_past));
 
 	d=(abs(d)<50)?0:d;
 
-	d=(d>2400)?(0):d;
-	d=(d<-2400)?(0):d;
+	d=(d>2400)?(2400):d;
+	d=(d<-2400)?(2400):d;
 
 	int p=PID_Err*kp;
 
@@ -319,6 +318,10 @@ inline int PD_CTRL (int Setpoint,int Feed_Back,int *PID_Err_past,int *d_past,flo
 
 	p=(p>127)?(127):p;
 	p=(p<-127)?(-127):p;
+	if (abs(PID_Err)>200)
+	{
+		//p=p/20;
+	}
 
 	//PID_U_past=PID_U;
 	int PID_U=p+(*i)+kd*d;//(0.5)*PID_Err2_M1+(1.5)*(PID_Err1_M1+PID_Err2_M1);//+(12.5)*(float)(PID_Err2_M1-PID_Err1_M1)/10.0; //kp=0.5  kd=9
@@ -327,8 +330,10 @@ inline int PD_CTRL (int Setpoint,int Feed_Back,int *PID_Err_past,int *d_past,flo
 	PID_U=127;
 	if( PID_U<-127)
 	PID_U=-127;
-	*PID_Err_past=PID_Err;
+	*Feed_Back_past=Feed_Back;
 	*d_past=d;
+
+
 	
 	if(Setpoint==0 && abs(Feed_Back-Setpoint)<10)
 	return 0;
@@ -383,7 +388,7 @@ if ((status & (FRAMING_ERROR | PARITY_ERROR | DATA_OVERRUN))==0)
 		break;
 		
 		case 11:
-		ki = .05;(float)data/100.0; //Robot_D[RobotID].I
+		ki = (float)data/100.0; //Robot_D[RobotID].I
 		pck_num++;
 		break;
 		
@@ -428,20 +433,20 @@ ISR(TIMER1_OVF_vect)
 	//Motor_Update ( PWM , Motor_Direction ) ;
 	TCNT1H=0xfc;
 	TCNT1L=0x17;
-	
-	counter++;
-	if (counter==1)
+	if (counter<200)
 	{
-		Time++;
-		counter=0;
-
+		counter++;
 	}
 	
 	T_20ms() ;
 	
 	M.RPM_last = M.RPM ; M.RPM=M.HSpeed;
 	M.RPM = M.RPM_last + _FILTER_CONST *( M.RPM - M.RPM_last ) ;
-	M.PWM = PD_CTRL ( (M.RPM_setpointB & 0x0ff)|((M.RPM_setpointA<<8) & 0xff00), M.RPM , &M.Err , &M.d , &M.i ) ;//
+	if (counter>199)
+	{
+		M.PWM = PD_CTRL ( (M.RPM_setpointB & 0x0ff)|((M.RPM_setpointA<<8) & 0xff00), M.RPM , &M.Err , &M.d , &M.i ) ;//
+	}
+	
 				
 	if ( M.PWM<0)
 	{

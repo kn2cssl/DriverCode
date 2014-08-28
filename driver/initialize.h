@@ -80,7 +80,7 @@
 
 
 void Motor_Update(unsigned char Speed, unsigned char Direction);
-inline int PD_CTRL (int Setpoint,int Feed_Back,int *PID_Err_past,int *d_past,float *i);
+inline int PD_CTRL (int Setpoint,int Feed_Back,int *Feed_Back_past,int *d_past,float *i);
 void T_20ms(void);
 unsigned char USART_receive(void);
 void USART_send( unsigned char data);
