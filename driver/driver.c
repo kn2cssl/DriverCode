@@ -12,6 +12,7 @@
 #include <util/delay.h>
 #include "Initialize.h"
 #define _Freq (1.0/(2.0*3.14*2.0))
+#define setpoint 1144//(M.RPM_setpointB & 0x0ff)|((M.RPM_setpointA<<8)& 0xff00)
 
 char slave_address=0;
 char send_buff;
@@ -19,6 +20,7 @@ char str[100];
 int hall_flag=0,hall_dir=0;
 uint16_t counter=0;
 int PWM;
+int pp,ii,dd;
 float ctrl_time=0.001;//0.020;
 signed long int RPM_setpoint=900;
 int tmp_setpoint,tmp_rpmA,tmp_rpmB;
@@ -30,7 +32,7 @@ char test_driver=0b11;
 struct Motor_Param 
 {
 	int Encoder;
-	int Err,d,i,p;
+	signed long Err,d,i,p;
 	int Direction;
 	int RPM;
 	int RPM_last;
@@ -189,13 +191,13 @@ TWCR=0x00;
 // Watchdog Timer initialization
 // Watchdog Timer Prescaler: OSC/8k
 // Watchdog Timer interrupt: Off
-#pragma optsize-
+//#pragma optsize-
 asm("wdr");
 WDTCSR=0x18;
 WDTCSR=0x08;
-#ifdef _OPTIMIZE_SIZE_
-#pragma optsize+
-#endif
+//#ifdef _OPTIMIZE_SIZE_
+//#pragma optsize+
+//#endif
 slave_address=ADD0|(ADD1<<1);
 // Global enable interrupts
 asm("sei");
@@ -295,25 +297,45 @@ void Motor_Update(uint8_t Speed, uint8_t Direction)
 	}
 }
 
-int PID_CTRL()
+inline int PID_CTRL()
 {
-	M.PID_Err = (M.RPM_setpointB & 0x0ff)|((M.RPM_setpointA<<8) & 0xff00) - M.RPM ;
+	int box_0;
+	kp=0.1;
+	//ki=0.1;
+	kd=0.5;
+	M.PID_Err = (setpoint)- M.RPM ;
 	
 	M.p = M.PID_Err * kp;
-	M.i += M.PID_Err ;
-	M.d = ( M.RPM_last - M.RPM ) ;//+ (M.PID_last - M.PID) ;
+	M.i += M.PID_Err* ki * 0.1 ;
+
 	
 	M.p=(M.p>127)?(127):M.p;
 	M.p=(M.p<-127)?(-127):M.p;
 	
-	M.i=(M.>127)?(127):M.p;
-	M.p=(M.p<-127)?(-127):M.p;
-
+	M.i=(M.i>30)?(30):M.i;
+	M.i=(M.i<-30)?(-30):M.i;
 	
+	//M.d=(abs(M.d)<50)?0:M.d;
+	M.d=(M.d>2400)?(2400):M.d;
+	M.d=(M.d<-2400)?(2400):M.d;
 	
-	M.PID = M.i * ki * 0.01 + M.p + M.d * kd ;
+	pp=M.RPM_last;M.p;
+	ii=box_0;
+	dd=M.d;
+	
+	M.PID = M.i  + M.p + M.d * kd ;
 	
 	M.PID_last = M.PID_last ;
+	
+	if(M.PID>127)
+	M.PID=127;
+	if( M.PID<-127)
+	M.PID=-127;
+
+	if((setpoint)==0 && abs(M.RPM-(setpoint))<10)
+	return 0;
+		
+	return M.PID;
 	
 }
 
@@ -465,10 +487,11 @@ ISR(TIMER1_OVF_vect)
 	T_20ms() ;
 	
 	M.RPM_last = M.RPM ; M.RPM=M.HSpeed;
-	M.RPM = M.RPM_last + _FILTER_CONST *( M.RPM - M.RPM_last ) ;
+	M.d = M.RPM - M.RPM_last ;
+	M.RPM = M.RPM_last + _FILTER_CONST *( M.d ) ;
 	if (counter>199)
 	{
-		M.PWM = PD_CTRL ( (M.RPM_setpointB & 0x0ff)|((M.RPM_setpointA<<8) & 0xff00), M.RPM , &M.Err , &M.d , &M.i ) ;//
+		M.PWM =  PD_CTRL ( (M.RPM_setpointB & 0x0ff)|((M.RPM_setpointA<<8) & 0xff00), M.RPM , &M.Err , &M.d , &M.i ) ;//PID_CTRL();//
 	}
 	
 				
@@ -507,6 +530,24 @@ void send_reply(void)
 		USART_send ( send_buff ) ;
 		
 		send_buff = ( ( ( (int) M.RPM ) & 0x0ff00 ) >>8 ) ;//HALL2;
+		USART_send ( send_buff ) ;
+		
+		send_buff = (((int)pp) & 0x0ff) ;//HALL1;
+		USART_send ( send_buff ) ;
+		
+		send_buff = ( ( ( (int) pp ) & 0x0ff00 ) >>8 ) ;//HALL2;
+		USART_send ( send_buff ) ;
+		
+		send_buff = (((int)ii) & 0x0ff) ;//HALL1;
+		USART_send ( send_buff ) ;
+		
+		send_buff = ( ( ( (int) ii ) & 0x0ff00 ) >>8 ) ;//HALL2;
+		USART_send ( send_buff ) ;
+		
+		send_buff = (((int)dd) & 0x0ff) ;//HALL1;
+		USART_send ( send_buff ) ;
+		
+		send_buff = ( ( ( (int) dd ) & 0x0ff00 ) >>8 ) ;//HALL2;
 		USART_send ( send_buff ) ;
 		
 		//send_buff = slave_address ;//HALL3;
