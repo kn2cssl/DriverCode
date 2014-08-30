@@ -30,15 +30,16 @@ char test_driver=0b11;
 struct Motor_Param 
 {
 	int Encoder;
-	int Err,d,i;
+	int Err,d,i,p;
 	int Direction;
 	int RPM;
 	int RPM_last;
 	int PWM;
 	int HSpeed;
-	int PWM1;
 	signed int RPM_setpointB;
 	signed int RPM_setpointA;
+	int PID,PID_last,PID_Err,PID_Err_last;
+	int Feed_Back,Feed_Back_last;
 	
 }M;
 
@@ -294,6 +295,28 @@ void Motor_Update(uint8_t Speed, uint8_t Direction)
 	}
 }
 
+int PID_CTRL()
+{
+	M.PID_Err = (M.RPM_setpointB & 0x0ff)|((M.RPM_setpointA<<8) & 0xff00) - M.RPM ;
+	
+	M.p = M.PID_Err * kp;
+	M.i += M.PID_Err ;
+	M.d = ( M.RPM_last - M.RPM ) ;//+ (M.PID_last - M.PID) ;
+	
+	M.p=(M.p>127)?(127):M.p;
+	M.p=(M.p<-127)?(-127):M.p;
+	
+	M.i=(M.>127)?(127):M.p;
+	M.p=(M.p<-127)?(-127):M.p;
+
+	
+	
+	M.PID = M.i * ki * 0.01 + M.p + M.d * kd ;
+	
+	M.PID_last = M.PID_last ;
+	
+}
+
 inline int PD_CTRL (int Setpoint,int Feed_Back,int *Feed_Back_past,int *d_past,float *i)
 {
 	int PID_Err=Setpoint-Feed_Back;
@@ -318,6 +341,7 @@ inline int PD_CTRL (int Setpoint,int Feed_Back,int *Feed_Back_past,int *d_past,f
 
 	p=(p>127)?(127):p;
 	p=(p<-127)?(-127):p;
+	
 	if (abs(PID_Err)>200)
 	{
 		//p=p/20;
