@@ -12,7 +12,7 @@
 #include <util/delay.h>
 #include "Initialize.h"
 #define _Freq (1.0/(2.0*3.14*2.0))
-#define setpoint 1144//(M.RPM_setpointB & 0x0ff)|((M.RPM_setpointA<<8)& 0xff00)
+#define setpoint (M.RPM_setpointB & 0x0ff)|((M.RPM_setpointA<<8)& 0xff00)//1500//
 
 char slave_address=0;
 char send_buff;
@@ -32,7 +32,7 @@ char test_driver=0b11;
 struct Motor_Param 
 {
 	int Encoder;
-	signed long Err,d,i,p;
+	signed long Err,d,d_last,i,p;
 	int Direction;
 	int RPM;
 	int RPM_last;
@@ -300,9 +300,9 @@ void Motor_Update(uint8_t Speed, uint8_t Direction)
 inline int PID_CTRL()
 {
 	int box_0;
-	kp=0.1;
-	//ki=0.1;
-	kd=0.5;
+	//kp=0;
+	//ki=0;
+	//kd=0.07;
 	M.PID_Err = (setpoint)- M.RPM ;
 	
 	M.p = M.PID_Err * kp;
@@ -312,18 +312,18 @@ inline int PID_CTRL()
 	M.p=(M.p>127)?(127):M.p;
 	M.p=(M.p<-127)?(-127):M.p;
 	
-	M.i=(M.i>30)?(30):M.i;
-	M.i=(M.i<-30)?(-30):M.i;
+	M.i=(M.i>120)?(120):M.i;
+	M.i=(M.i<-120)?(-120):M.i;
 	
-	//M.d=(abs(M.d)<50)?0:M.d;
+	//M.d=(abs(M.d)<100)?0:M.d;
 	M.d=(M.d>2400)?(2400):M.d;
 	M.d=(M.d<-2400)?(2400):M.d;
 	
-	pp=M.RPM_last;M.p;
-	ii=box_0;
+	pp=M.RPM;
+	
 	dd=M.d;
 	
-	M.PID = M.i  + M.p + M.d * kd ;
+	M.PID = M.i  + M.p - M.d * kd ;
 	
 	M.PID_last = M.PID_last ;
 	
@@ -487,11 +487,12 @@ ISR(TIMER1_OVF_vect)
 	T_20ms() ;
 	
 	M.RPM_last = M.RPM ; M.RPM=M.HSpeed;
-	M.d = M.RPM - M.RPM_last ;
+	M.d_last=M.d; M.d= M.RPM - M.RPM_last ;
 	M.RPM = M.RPM_last + _FILTER_CONST *( M.d ) ;
+	M.d= M.d_last + _FILTER_PID_CONST *( M.d - M.d_last ) ;
 	if (counter>199)
 	{
-		M.PWM =  PD_CTRL ( (M.RPM_setpointB & 0x0ff)|((M.RPM_setpointA<<8) & 0xff00), M.RPM , &M.Err , &M.d , &M.i ) ;//PID_CTRL();//
+		M.PWM =  PID_CTRL();//PD_CTRL ( (M.RPM_setpointB & 0x0ff)|((M.RPM_setpointA<<8) & 0xff00), M.RPM , &M.Err , &M.d , &M.i ) ;//
 	}
 	
 				
