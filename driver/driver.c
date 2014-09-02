@@ -52,7 +52,7 @@ char data_buf[DATA_BUF_SIZE];
 unsigned char pck_num = 0;
 bool data_rcv = 0;
 
-int flg_ask=0;
+int flg_ask=0,current_ov=0;
 
 float kp,ki,kd;
 unsigned char kp_tmp,ki_tmp,kd_tmp,ask_tmp;
@@ -209,7 +209,7 @@ TWCR=0x00;
 //#endif
 slave_address=ADD0|(ADD1<<1);
 
-if (slave_address==0)
+if (slave_address==3)
 {
 	// USART initialization
 	// Communication Parameters: 8 Data, 1 Stop, No Parity
@@ -246,6 +246,29 @@ DDRC|=(1<<PINC5);
         adc= (char)(read_adc(7)&0x00ff);
         adc_I=adc*8.65;//*34.732;
         adc_I = adc_I_1 + /*((0.01/(f+0.01))*/ (0.02*(float)(adc_I-adc_I_1));
+		if (adc_I>=1500)
+		{
+			
+			//LED_3  (~READ_PIN(PORTB,5));
+			current_ov=1;
+			//Motor_Update(0,Motor_Direction);
+			
+		}
+		else
+		current_ov=0;
+		//if(current_ov)
+		//{
+			//Motor_Update(0,Motor_Direction);
+		//}
+		//else
+		//Motor_Update(pwm,Motor_Direction);
+		while(current_ov)
+		{
+			WRITE_PORT(PORTC,5, current_ov);
+			Motor_Update(0,Motor_Direction);
+			
+		}
+		//LED_2  (~READ_PIN(PORTB,4));
 		
 		// Place your code here
         if ( master_setpoint<0)
@@ -260,16 +283,16 @@ DDRC|=(1<<PINC5);
 	        Motor_Direction= 0;
 	         
         }
-        //LED_3=~LED_3;
-        if(TCNT0>100){
-	        PORTC=PORTC&(~(1<<PINC5));
-        }
-        else
-        {
-	       PORTC=PORTC|(1<<PINC5);
-        }
+       
+        //if(TCNT0>100){
+	        //PORTC=PORTC&(~(1<<PINC5));
+        //}
+        //else
+        //{
+	       //PORTC=PORTC|(1<<PINC5);
+        //}
 
-        //pwm=80;
+        //pwm=150;
 		//Motor_Direction= 0;
         //        M1p=0;
         //        M2p=0;
@@ -278,7 +301,10 @@ DDRC|=(1<<PINC5);
         //M2_TCCR = (M2_TCCR & (~M2_TCCR_gm)) | (M2_TCCR_gm)|0x03;
         // M3_TCCR = (M3_TCCR & (~M3_TCCR_gm)) | (M3_TCCR_gm)|0x03;
 		
-        Motor_Update(pwm,Motor_Direction);
+		
+		Motor_Update(pwm,Motor_Direction);
+        
+		
 		
 		if(flg_ask==1)
 		{
@@ -444,7 +470,7 @@ void send_reply(void)
 		data_test=((((int)adc_I)&0x0ff00)>>8);//HALL2;
 		Motor_Update(pwm,Motor_Direction);
 		USART_send(data_test);
-		data_test=25;//slave_address;//HALL3;
+		data_test=current_ov;//slave_address;//HALL3;
 		Motor_Update(pwm,Motor_Direction);
 		USART_send(data_test);
 		USART_send('#');
