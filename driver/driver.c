@@ -21,6 +21,7 @@ int hall_flag=0,hall_dir=0;
 uint16_t counter=0;
 int PWM;
 int pp,ii,dd;
+int Motor_Free;
 float ctrl_time=0.001;//0.020;
 signed long int RPM_setpoint=900;
 int tmp_setpoint,tmp_rpmA,tmp_rpmB;
@@ -220,13 +221,23 @@ DDRC|=(1<<PINC5);
 void Motor_Update(uint8_t Speed, uint8_t Direction)
 {
 	 unsigned char Hall_State;
+	 int Hall_Condition;
 	 asm("wdr");
 	 Hall_State = (HALL3<<2)|(HALL2<<1)|(HALL1);
 	 LED_1  (HALL1);
 	 LED_2  (HALL2);
 	 LED_3  (HALL3);
+	 
+	 if (Motor_Free == '$')
+	 {
+		 Hall_Condition = 7 ;
+	 }
+	 else
+	 {
+		 Hall_Condition = Hall_State | ((Direction<<3)&0x8);
+	 }
 
-	switch(Hall_State | ((Direction<<3)&0x8))
+	switch(Hall_Condition)
 	{		
 		case 1:
 		case (6|0x8):
@@ -469,6 +480,7 @@ if ((status & (FRAMING_ERROR | PARITY_ERROR | DATA_OVERRUN))==0)
 			asm("wdr");
 			M.RPM_setpointA=tmp_rpmA;
 			M.RPM_setpointB=tmp_rpmB;
+			Motor_Free = data;
 		}
 		pck_num=0;
 		break;
