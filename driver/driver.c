@@ -12,7 +12,7 @@
 #include <util/delay.h>
 #include "Initialize.h"
 #define _Freq (1.0/(2.0*3.14*2.0))
-#define setpoint (M.RPM_setpointB & 0x0ff)|((M.RPM_setpointA<<8)& 0xff00)//1500//
+#define setpoint (M.RPM_setpointA & 0x0ff)|((M.RPM_setpointB<<8)& 0xff00)//1500//
 
 char slave_address=0;
 char send_buff;
@@ -33,15 +33,18 @@ struct Motor_Param
 {
 	int Encoder;
 	signed long Err,d,d_last,i,p;
+	float kp,ki,kd;
 	int Direction;
 	int RPM;
 	int RPM_last;
 	int PWM;
 	int HSpeed;
-	signed int RPM_setpointB;
-	signed int RPM_setpointA;
-	int PID,PID_last,PID_Err,PID_Err_last;
+	int8_t RPM_setpointB;
+	int8_t RPM_setpointA;
+	signed int Setpoint , Setpoint_last ;
+	int PID , PID_last , PID_Err , PID_Err_last ;
 	int Feed_Back,Feed_Back_last;
+	int psin;
 	
 }M;
 
@@ -154,12 +157,12 @@ UBRR0H=0x00;
 UBRR0L=0x33;
 if (slave_address==test_driver)
 {
-	// USART initialization
-	// Communication Parameters: 8 Data, 1 Stop, No Parity
-	// USART Receiver: On
-	// USART Transmitter: On
-	// USART0 Mode: Asynchronous
-	// USART Baud Rate: 9600
+	 //USART initialization
+	 //Communication Parameters: 8 Data, 1 Stop, No Parity
+	 //USART Receiver: On
+	 //USART Transmitter: On
+	 //USART0 Mode: Asynchronous
+	 //USART Baud Rate: 9600
 	UCSR0A=0x00;
 	UCSR0B=0x98;
 	UCSR0C=0x06;
@@ -299,18 +302,29 @@ void Motor_Update(uint8_t Speed, uint8_t Direction)
 
 inline int PID_CTRL()
 {
-	int box_0;
 	//kp=0;
 	//ki=0;
 	//kd=0.07;
+	M.Setpoint = setpoint ;
 	M.PID_Err = (setpoint)- M.RPM ;
 	
-	M.p = M.PID_Err * kp;
+	M.p = M.PID_Err * M.kp;
 	M.i += M.PID_Err* ki * 0.1 ;
 
 	
 	M.p=(M.p>127)?(127):M.p;
 	M.p=(M.p<-127)?(-127):M.p;
+	
+	if (abs(M.PID_Err - M.PID_Err_last) < 20 && abs(M.PID_Err) > 20 && (M.kp<2.6 || abs(M.RPM)>1900) &&  abs(M.RPM)>10) M.kp+=.001;
+	//if (M.psin > 80) M.kp-=.05;
+	if (abs (M.Setpoint_last - (setpoint)) > 5 ) 
+	{ 
+		if ((setpoint)>0 && M.Setpoint_last>(setpoint))M.kp = kp;
+		if ((setpoint)<0 && M.Setpoint_last<(setpoint))M.kp = kp;
+	}
+	if (abs(M.RPM)<50) M.kp = kp;
+	
+	
 	
 	M.i=(M.i>120)?(120):M.i;
 	M.i=(M.i<-120)?(-120):M.i;
@@ -319,8 +333,8 @@ inline int PID_CTRL()
 	M.d=(M.d>2400)?(2400):M.d;
 	M.d=(M.d<-2400)?(2400):M.d;
 	
-	pp=M.RPM;
-	
+	pp=M.p;
+	ii= M.kp*100;
 	dd=M.d;
 	
 	M.PID = M.i  + M.p - M.d * kd ;
@@ -332,6 +346,10 @@ inline int PID_CTRL()
 	if( M.PID<-127)
 	M.PID=-127;
 
+	M.PID_Err_last = M.PID_Err ;
+	M.Feed_Back_last = M.Feed_Back ;
+	M.Setpoint_last = setpoint ;
+	
 	if((setpoint)==0 && abs(M.RPM-(setpoint))<10)
 	return 0;
 		
@@ -357,9 +375,9 @@ inline int PD_CTRL (int Setpoint,int Feed_Back,int *Feed_Back_past,int *d_past,f
 
 
 	if ((*i)>80)
-	(*i)=80;
+		(*i)=80;
 	if ((*i)<-80)
-	(*i)=-80;
+		(*i)=-80;
 
 	p=(p>127)?(127):p;
 	p=(p<-127)?(-127):p;
@@ -373,9 +391,12 @@ inline int PD_CTRL (int Setpoint,int Feed_Back,int *Feed_Back_past,int *d_past,f
 	int PID_U=p+(*i)+kd*d;//(0.5)*PID_Err2_M1+(1.5)*(PID_Err1_M1+PID_Err2_M1);//+(12.5)*(float)(PID_Err2_M1-PID_Err1_M1)/10.0; //kp=0.5  kd=9
 
 	if(PID_U>127)
-	PID_U=127;
+		PID_U=127;
 	if( PID_U<-127)
-	PID_U=-127;
+		PID_U=-127;
+	
+	if ((setpoint) < 10) PID_U = 0 ;
+	
 	*Feed_Back_past=Feed_Back;
 	*d_past=d;
 
@@ -419,12 +440,11 @@ if ((status & (FRAMING_ERROR | PARITY_ERROR | DATA_OVERRUN))==0)
 		case 7:
 		case 8:
 		case 9:
-		if(slave_address*2 == pck_num-2)
-		tmp_rpmB=data;
-		//tmp_setpoint = data & 0x0FF;
 		if(slave_address*2 == pck_num-3)
 		tmp_rpmA=data;
-		//tmp_setpoint |= (data<<8) & 0xFF00;
+		if(slave_address*2 == pck_num-2)
+		tmp_rpmB=data;
+		
 		pck_num++;
 		break;
 		
@@ -447,10 +467,8 @@ if ((status & (FRAMING_ERROR | PARITY_ERROR | DATA_OVERRUN))==0)
 		if(data == '#' || data=='$')
 		{
 			asm("wdr");
-			M.RPM_setpointB=tmp_rpmB;
 			M.RPM_setpointA=tmp_rpmA;
-			//RPM_setpoint = tmp_setpoint;
-			//LED_1  (~READ_PIN(PORTB,0));
+			M.RPM_setpointB=tmp_rpmB;
 		}
 		pck_num=0;
 		break;
