@@ -23,7 +23,7 @@ int PWM;
 int pp,ii,dd;
 int Motor_Free;
 float ctrl_time=0.001;//0.020;
-signed long int RPM_setpoint=900;
+signed long int RPM_setpoint;
 int tmp_setpoint,tmp_rpmA,tmp_rpmB;
 unsigned char pck_num = 0;
 float RPM,kp,ki,kd;
@@ -53,7 +53,7 @@ struct Motor_Param
 
 int main(void)
 {  
-	M.PWM=0x7fff;
+	M.PWM=120;
 	slave_address=ADD0|(ADD1<<1);
 // Input/Output Ports initialization
 // Port B initialization
@@ -209,6 +209,7 @@ DDRC|=(1<<PINC5);
 
     while(1)
     {
+		asm("wdr");
 
 					if(slave_address==0b11)
 					{
@@ -231,6 +232,10 @@ void Motor_Update(uint8_t Speed, uint8_t Direction)
 	 if (Motor_Free == '$')
 	 {
 		 Hall_Condition = 7 ;
+		 if (counter<200)
+		 {
+			Hall_Condition = Hall_State | ((Direction<<3)&0x8); 
+		 }
 	 }
 	 else
 	 {
@@ -428,7 +433,7 @@ data=UDR0;
 
 if ((status & (FRAMING_ERROR | PARITY_ERROR | DATA_OVERRUN))==0)
 {
-		Motor_Update ( PWM , Motor_Direction ) ;
+	Motor_Update ( PWM , Motor_Direction ) ;
 	switch (pck_num)
 	{
 		case 0:
@@ -500,7 +505,6 @@ ISR(PCINT2_vect)
 {
 	hall_flag ++ ;
 	Motor_Update ( PWM , Motor_Direction ) ;
-
 }
 
 
@@ -544,12 +548,9 @@ ISR(TIMER1_OVF_vect)
 
 void T_20ms(void)
 {
-	//LED_1  (~READ_PIN(PORTB,0));
-	
 	M.HSpeed = (float) ( hall_flag * 1250 ) ;	//62.50=60s/(20ms*48)	48 = 3(number of hall sensors) * 8(number of pair poles) * 2
 	M.HSpeed = ( hall_dir ) ? - M.HSpeed : M.HSpeed ;
 	hall_flag = 0 ;
-
 }
 
 void send_reply(void)
@@ -580,21 +581,6 @@ void send_reply(void)
 		
 		send_buff = ( ( ( (int) dd ) & 0x0ff00 ) >>8 ) ;//HALL2;
 		USART_send ( send_buff ) ;
-		
-		//send_buff = slave_address ;//HALL3;
-		//USART_send ( send_buff ) ;
-		//
-		//send_buff = (((int)M.PWM) & 0x0ff) ;//HALL1;
-		//USART_send ( send_buff ) ;
-		
-		//send_buff = ( ( ( (int) M.PWM ) & 0x0ff00 ) >>8 ) ;//HALL2;
-		//USART_send ( send_buff ) ;
-		
-		//send_buff = ((int)M.RPM_setpointB) ;//HALL1;
-		//USART_send ( send_buff ) ;
-				//
-		//send_buff =   ( (int) M.RPM_setpointA );//HALL2;
-		//USART_send ( send_buff ) ;
 		
 		USART_send ('#') ;
 }
