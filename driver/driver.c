@@ -193,8 +193,7 @@ DDRC|=(1<<PINC5);
     {
 		asm("wdr");
 
-					if((test_driver== '!' && slave_address == 0b00) || (test_driver== '@' && slave_address == 0b01) 
-					|| (test_driver== '#' && slave_address == 0b10) || (test_driver== '$' && slave_address == 0b11) )
+					if( test_driver == slave_address )
 					{
 						if (usart_change == 0)
 						{
@@ -446,17 +445,22 @@ if ((status & (FRAMING_ERROR | PARITY_ERROR | DATA_OVERRUN))==0)
 		break;
 		
 		case 13:
-		if(data == '!' || data=='@' || data == '#' || data == '$' || data == '%')// answer codes: ! >> driver0 - @ >> driver1 - # >> driver2 - $ >> driver3
-		{																		 // free wheel : %
+		if (test_driver != data)
+		{
+			usart_change=0;
+		}
+		test_driver = data;
+		pck_num++;
+		break;
+		
+		case 14:
+		if(data == '%' || data == '^')// free wheel : %
+		{																		 
 			asm("wdr");
 			M.RPM_setpointA=tmp_rpmA;
 			M.RPM_setpointB=tmp_rpmB;
 			Motor_Free = data;
-			if (test_driver != data)
-			{
-				usart_change=0;
-			}
-			test_driver = data;
+
 		}
 		pck_num=0;
 		break;
