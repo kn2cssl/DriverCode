@@ -344,9 +344,9 @@ inline int PID_CTRL()
 	
 	
 	
-	//if (abs(M.PID_Err - M.PID_Err_last) < 20 && abs(M.PID_Err) < 700 && abs(M.PID_Err) > 20 && (M.kp<2.6 || abs(M.RPM)>1900) &&  abs(M.RPM)>10) M.kp+=.001;
-	//if (abs(M.PID_Err - M.PID_Err_last) < 20 && abs(M.PID_Err) > 700 && (M.kp<2.6 || abs(M.RPM)>1900) &&  abs(M.RPM)>10) M.kp+=.003;
-	if (abs(M.PID_Err - M.PID_Err_last) < 20 && abs(M.PID_Err) > 30 && (M.kp<2.6 || (abs(M.RPM)>1900 && M.kp < 3.6)) &&  abs(M.RPM)>10 && abs(M.RPM)<abs(setpoint)) M.kp+=pow(log(M.PID_Err),3)/10000.0;
+	if (abs(M.PID_Err - M.PID_Err_last) < 20 && abs(M.PID_Err) < 700 && abs(M.PID_Err) > 20 && (M.kp<2.6 || (abs(M.RPM)>1900 && M.kp < 3.2)) &&  abs(M.RPM)>10) M.kp+=.001;
+	if (abs(M.PID_Err - M.PID_Err_last) < 20 && abs(M.PID_Err) > 700 && (M.kp<2.6 || abs(M.RPM)>1900) &&  abs(M.RPM)>10) M.kp+=.003;
+	//if (abs(M.PID_Err - M.PID_Err_last) < 20 && abs(M.PID_Err) > 30 && (M.kp<2.6 || (abs(M.RPM)>1900 && M.kp < 3.6)) &&  abs(M.RPM)>10 ) M.kp+=pow(log(M.PID_Err),3)/10000.0;
 
 	//if (M.psin > 80) M.kp-=.05;
 	if (abs (M.Setpoint_last - (setpoint)) > 5 ) 
