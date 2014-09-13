@@ -20,14 +20,13 @@ char str[100];
 int hall_flag=0,hall_dir=0;
 uint16_t counter=0;
 int PWM;
-int pp,ii,dd;
+int usart_change;
+int Transmission_Data_1,Transmission_Data_2,Transmission_Data_3,Transmission_Data_4;
 int Motor_Free;
 float ctrl_time=0.001;//0.020;
-signed long int RPM_setpoint;
 int tmp_setpoint,tmp_rpmA,tmp_rpmB;
 unsigned char pck_num = 0;
 float RPM,kp,ki,kd;
-uint16_t Time=0;
 uint8_t Motor_Direction;
 char test_driver=0b11;
 struct Motor_Param 
@@ -46,7 +45,6 @@ struct Motor_Param
 	int PID , PID_last , PID_Err , PID_Err_last ;
 	int Feed_Back,Feed_Back_last;
 	int psin;
-	
 }M;
 
 
@@ -145,33 +143,17 @@ TIMSK1=0x01;
 // Timer/Counter 2 Interrupt(s) initialization
 TIMSK2=0x00;
 
-// USART initialization
-// Communication Parameters: 8 Data, 1 Stop, No Parity
-// USART Receiver: On
-// USART Transmitter: Off
-// USART0 Mode: Asynchronous
-// USART Baud Rate: 9600
+//USART initialization
+//Communication Parameters: 8 Data, 1 Stop, No Parity
+//USART Receiver: On
+//USART Transmitter: On
+//USART0 Mode: Asynchronous
+//USART Baud Rate: 9600
 UCSR0A=0x00;
-UCSR0B=0x90;
+UCSR0B=0x98;
 UCSR0C=0x06;
 UBRR0H=0x00;
 UBRR0L=0x33;
-if (slave_address==test_driver)
-{
-	 //USART initialization
-	 //Communication Parameters: 8 Data, 1 Stop, No Parity
-	 //USART Receiver: On
-	 //USART Transmitter: On
-	 //USART0 Mode: Asynchronous
-	 //USART Baud Rate: 9600
-	UCSR0A=0x00;
-	UCSR0B=0x98;
-	UCSR0C=0x06;
-	UBRR0H=0x00;
-	UBRR0L=0x33;
-	
-	PORTD=0x00;
-}
 
 // Analog Comparator initialization
 // Analog Comparator: Off
@@ -211,13 +193,49 @@ DDRC|=(1<<PINC5);
     {
 		asm("wdr");
 
-					if(slave_address==0b11)
+					if((test_driver== '!' && slave_address == 0b00) || (test_driver== '@' && slave_address == 0b01) 
+					|| (test_driver== '#' && slave_address == 0b10) || (test_driver== '$' && slave_address == 0b11) )
 					{
+						if (usart_change == 0)
+						{
+							//USART initialization
+							//Communication Parameters: 8 Data, 1 Stop, No Parity
+							//USART Receiver: On
+							//USART Transmitter: On
+							//USART0 Mode: Asynchronous
+							//USART Baud Rate: 9600
+							UCSR0A=0x00;
+							UCSR0B=0x98;
+							UCSR0C=0x06;
+							UBRR0H=0x00;
+							UBRR0L=0x33;
+							usart_change=1;
+						}
 						send_reply () ;
+					}
+					else
+					{
+						if (usart_change == 0)
+						{
+							// USART initialization
+							// Communication Parameters: 8 Data, 1 Stop, No Parity
+							// USART Receiver: On
+							// USART Transmitter: Off
+							// USART0 Mode: Asynchronous
+							// USART Baud Rate: 9600
+							UCSR0A=0x00;
+							UCSR0B=0x90;
+							UCSR0C=0x06;
+							UBRR0H=0x00;
+							UBRR0L=0x33;
+							usart_change=1;
+						}
 					}
 		
     }
 }
+
+
 
 void Motor_Update(uint8_t Speed, uint8_t Direction)
 {
@@ -229,7 +247,7 @@ void Motor_Update(uint8_t Speed, uint8_t Direction)
 	 LED_2  (HALL2);
 	 LED_3  (HALL3);
 	 
-	 if (Motor_Free == '$')
+	 if (Motor_Free == '%')
 	 {
 		 Hall_Condition = 7 ;
 		 if (counter<200)
@@ -318,20 +336,18 @@ void Motor_Update(uint8_t Speed, uint8_t Direction)
 
 inline int PID_CTRL()
 {
-	//kp=0;
-	//ki=0;
-	//kd=0.07;
+	kp=.20;
+	ki=0;
+	kd=0.07;
 	M.Setpoint = setpoint ;
 	M.PID_Err = (setpoint)- M.RPM ;
 	
-	M.p = M.PID_Err * M.kp;
-	M.i += M.PID_Err* ki * 0.1 ;
+	
+	
+	//if (abs(M.PID_Err - M.PID_Err_last) < 20 && abs(M.PID_Err) < 700 && abs(M.PID_Err) > 20 && (M.kp<2.6 || abs(M.RPM)>1900) &&  abs(M.RPM)>10) M.kp+=.001;
+	//if (abs(M.PID_Err - M.PID_Err_last) < 20 && abs(M.PID_Err) > 700 && (M.kp<2.6 || abs(M.RPM)>1900) &&  abs(M.RPM)>10) M.kp+=.003;
+	if (abs(M.PID_Err - M.PID_Err_last) < 20 && abs(M.PID_Err) > 30 && (M.kp<2.6 || (abs(M.RPM)>1900 && M.kp < 3.6)) &&  abs(M.RPM)>10 && abs(M.RPM)<abs(setpoint)) M.kp+=pow(log(M.PID_Err),3)/10000.0;
 
-	
-	M.p=(M.p>127)?(127):M.p;
-	M.p=(M.p<-127)?(-127):M.p;
-	
-	if (abs(M.PID_Err - M.PID_Err_last) < 20 && abs(M.PID_Err) > 20 && (M.kp<2.6 || abs(M.RPM)>1900) &&  abs(M.RPM)>10) M.kp+=.001;
 	//if (M.psin > 80) M.kp-=.05;
 	if (abs (M.Setpoint_last - (setpoint)) > 5 ) 
 	{ 
@@ -340,18 +356,19 @@ inline int PID_CTRL()
 	}
 	if (abs(M.RPM)<50) M.kp = kp;
 	
+	M.p = (M.PID_Err) * M.kp;
+	M.i += M.PID_Err * ki * 0.1 ;
+	
+	
+	M.p=(M.p>127)?(127):M.p;
+	M.p=(M.p<-127)?(-127):M.p;
 	
 	
 	M.i=(M.i>120)?(120):M.i;
 	M.i=(M.i<-120)?(-120):M.i;
 	
-	//M.d=(abs(M.d)<100)?0:M.d;
 	M.d=(M.d>2400)?(2400):M.d;
 	M.d=(M.d<-2400)?(2400):M.d;
-	
-	pp=M.p;
-	ii= M.kp*100;
-	dd=M.d;
 	
 	M.PID = M.i  + M.p - M.d * kd ;
 	
@@ -373,57 +390,6 @@ inline int PID_CTRL()
 	
 }
 
-inline int PD_CTRL (int Setpoint,int Feed_Back,int *Feed_Back_past,int *d_past,float *i)
-{
-	int PID_Err=Setpoint-Feed_Back;
-	int d=(*Feed_Back_past-(Feed_Back))*10 ;
-	// d= (*d_past) +0.05*(d-(*d_past));
-
-	d=(abs(d)<50)?0:d;
-
-	d=(d>2400)?(2400):d;
-	d=(d<-2400)?(2400):d;
-
-	int p=PID_Err*kp;
-
-
-	(*i)=(*i)+(ki*PID_Err)*.001;
-
-
-	if ((*i)>80)
-		(*i)=80;
-	if ((*i)<-80)
-		(*i)=-80;
-
-	p=(p>127)?(127):p;
-	p=(p<-127)?(-127):p;
-	
-	if (abs(PID_Err)>200)
-	{
-		//p=p/20;
-	}
-
-	//PID_U_past=PID_U;
-	int PID_U=p+(*i)+kd*d;//(0.5)*PID_Err2_M1+(1.5)*(PID_Err1_M1+PID_Err2_M1);//+(12.5)*(float)(PID_Err2_M1-PID_Err1_M1)/10.0; //kp=0.5  kd=9
-
-	if(PID_U>127)
-		PID_U=127;
-	if( PID_U<-127)
-		PID_U=-127;
-	
-	if ((setpoint) < 10) PID_U = 0 ;
-	
-	*Feed_Back_past=Feed_Back;
-	*d_past=d;
-
-
-	
-	if(Setpoint==0 && abs(Feed_Back-Setpoint)<10)
-	return 0;
-	
-	return PID_U;
-
-}
 
 ISR(USART_RX_vect)
 {
@@ -480,12 +446,17 @@ if ((status & (FRAMING_ERROR | PARITY_ERROR | DATA_OVERRUN))==0)
 		break;
 		
 		case 13:
-		if(data == '#' || data=='$')
-		{
+		if(data == '!' || data=='@' || data == '#' || data == '$' || data == '%')// answer codes: ! >> driver0 - @ >> driver1 - # >> driver2 - $ >> driver3
+		{																		 // free wheel : %
 			asm("wdr");
 			M.RPM_setpointA=tmp_rpmA;
 			M.RPM_setpointB=tmp_rpmB;
 			Motor_Free = data;
+			if (test_driver != data)
+			{
+				usart_change=0;
+			}
+			test_driver = data;
 		}
 		pck_num=0;
 		break;
@@ -510,9 +481,9 @@ ISR(PCINT2_vect)
 
 ISR(TIMER1_OVF_vect)
 {
-	//Motor_Update ( PWM , Motor_Direction ) ;
 	TCNT1H=0xfc;
 	TCNT1L=0x17;
+	
 	if (counter<200)
 	{
 		counter++;
@@ -540,8 +511,7 @@ ISR(TIMER1_OVF_vect)
 	{
 		PWM = M.PWM * 2 ;
 		Motor_Direction = 0 ;
-	}
-		
+	}	
 	Motor_Update ( PWM , Motor_Direction ) ;
 }
 
@@ -555,34 +525,39 @@ void T_20ms(void)
 
 void send_reply(void)
 {   
+	
+	Transmission_Data_1 = M.RPM;
+	Transmission_Data_2 = M.PID;
+	Transmission_Data_3 = M.kp;
+	Transmission_Data_4 = M.d;
 		
-		USART_send ('*');
+	USART_send ('*');
 		
-		send_buff = (((int)M.RPM) & 0x0ff) ;//HALL1;
-		USART_send ( send_buff ) ;
+	send_buff = (((int)Transmission_Data_1) & 0x0ff) ;//HALL1;
+	USART_send ( send_buff ) ;
 		
-		send_buff = ( ( ( (int) M.RPM ) & 0x0ff00 ) >>8 ) ;//HALL2;
-		USART_send ( send_buff ) ;
+	send_buff = ( ( ( (int) Transmission_Data_1 ) & 0x0ff00 ) >>8 ) ;//HALL2;
+	USART_send ( send_buff ) ;
 		
-		send_buff = (((int)pp) & 0x0ff) ;//HALL1;
-		USART_send ( send_buff ) ;
+	send_buff = (((int)Transmission_Data_2) & 0x0ff) ;//HALL1;
+	USART_send ( send_buff ) ;
 		
-		send_buff = ( ( ( (int) pp ) & 0x0ff00 ) >>8 ) ;//HALL2;
-		USART_send ( send_buff ) ;
+	send_buff = ( ( ( (int) Transmission_Data_2 ) & 0x0ff00 ) >>8 ) ;//HALL2;
+	USART_send ( send_buff ) ;
 		
-		send_buff = (((int)ii) & 0x0ff) ;//HALL1;
-		USART_send ( send_buff ) ;
+	send_buff = (((int)Transmission_Data_3) & 0x0ff) ;//HALL1;
+	USART_send ( send_buff ) ;
 		
-		send_buff = ( ( ( (int) ii ) & 0x0ff00 ) >>8 ) ;//HALL2;
-		USART_send ( send_buff ) ;
+	send_buff = ( ( ( (int) Transmission_Data_3 ) & 0x0ff00 ) >>8 ) ;//HALL2;
+	USART_send ( send_buff ) ;
 		
-		send_buff = (((int)dd) & 0x0ff) ;//HALL1;
-		USART_send ( send_buff ) ;
+	send_buff = (((int)Transmission_Data_4) & 0x0ff) ;//HALL1;
+	USART_send ( send_buff ) ;
 		
-		send_buff = ( ( ( (int) dd ) & 0x0ff00 ) >>8 ) ;//HALL2;
-		USART_send ( send_buff ) ;
+	send_buff = ( ( ( (int) Transmission_Data_4 ) & 0x0ff00 ) >>8 ) ;//HALL2;
+	USART_send ( send_buff ) ;
 		
-		USART_send ('#') ;
+	USART_send ('#') ;
 }
 
 

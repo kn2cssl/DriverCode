@@ -79,9 +79,7 @@
 #define _FILTER_CONST 0.006 //(0.001/((1.0/(2.0*3.14*_FILTER_FREQ))+0.001))
 #define _FILTER_PID_CONST 0.008 //(0.001/((1.0/(2.0*3.14*_FILTER_FREQ))+0.001))
 
-
 void Motor_Update(unsigned char Speed, unsigned char Direction);
-inline int PD_CTRL (int Setpoint,int Feed_Back,int *Feed_Back_past,int *d_past,float *i);
 inline int PID_CTRL();
 void T_20ms(void);
 unsigned char USART_receive(void);
